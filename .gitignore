@@ -1,0 +1,20 @@
+# Rust target directory
+/target/
+
+# Node dependencies & builds
+/frontend/node_modules/
+/frontend/build/
+/frontend/.svelte-kit/
+
+# Environment & IDE
+.env
+.idea/
+.vscode/
+*.swp
+
+# Large database dumps (local test copies)
+*.sql
+
+# Local OS files
+Thumbs.db
+Desktop.ini

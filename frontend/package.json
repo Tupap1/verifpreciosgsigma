@@ -1,0 +1,21 @@
+{
+  "name": "verifgsigma-frontend",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "^3.0.2",
+    "@vitejs/plugin-legacy": "^5.3.1",
+    "svelte": "^4.2.12",
+    "terser": "^5.29.1",
+    "vite": "^5.1.4"
+  },
+  "dependencies": {
+    "core-js": "^3.36.0"
+  }
+}
