@@ -19,7 +19,7 @@
   let timerCurrent = 5;
   let timerInterval = null;
 
-  // Keydown buffer for HID barcode scanner
+  // Keydown buffer for USB/Bluetooth HID Barcode Scanners and Keyboard
   let inputBuffer = '';
   let lastKeyTime = 0;
 
@@ -27,6 +27,7 @@
     serverHost = localStorage.getItem('vgs_server_host') || window.location.origin;
     sucursal = localStorage.getItem('vgs_sucursal') || '01';
 
+    // Global listener listening to ALL keydown events across the entire window
     window.addEventListener('keydown', handleGlobalKeydown);
   });
 
@@ -38,22 +39,26 @@
   });
 
   function handleGlobalKeydown(e) {
+    // Do not capture barcode scanner if editing inside settings modal or manual search input modal
     if (state === 'SETTINGS' || showManualModal) return;
 
     const now = Date.now();
 
-    if (now - lastKeyTime > 250) {
+    // Reset buffer if more than 2 seconds (2000ms) pass without typing
+    if (now - lastKeyTime > 2000) {
       inputBuffer = '';
     }
     lastKeyTime = now;
 
     if (e.key === 'Enter') {
+      e.preventDefault();
       if (inputBuffer.trim().length > 0) {
         const codeToSearch = inputBuffer.trim();
         inputBuffer = '';
         fetchProduct(codeToSearch);
       }
     } else if (e.key.length === 1) {
+      // Append alphanumeric barcode characters
       inputBuffer += e.key;
     }
   }
@@ -155,18 +160,18 @@
       <h1 style="font-size: 2.8rem; font-weight: 800; tracking: -1px; margin-bottom: 0.8rem;">
         Consultar Precio
       </h1>
-      <p style="font-size: 1.3rem; color: var(--text-muted); margin-bottom: 2rem;">
+      <p style="font-size: 1.3rem; color: var(--text-muted); margin-bottom: 2.5rem;">
         Escanee su producto con el lector de código de barras
       </p>
 
-      <!-- Minimalist Manual Entry Bar -->
-      <div style="width: 100%; max-width: 440px;">
+      <!-- Minimalist Manual Entry Link (Fallback if no physical scanner) -->
+      <div style="width: 100%; max-width: 360px;">
         <button 
           on:click={() => (showManualModal = true)}
-          style="width: 100%; background: #ffffff; border: 1px solid #cbd5e1; color: var(--text-main); padding: 0.9rem 1.4rem; border-radius: 100px; font-size: 1.05rem; font-weight: 500; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.04); transition: all 0.2s;"
+          style="width: 100%; background: #ffffff; border: 1px solid #cbd5e1; color: var(--text-muted); padding: 0.75rem 1.2rem; border-radius: 100px; font-size: 0.95rem; font-weight: 500; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.03); transition: all 0.2s;"
         >
-          <span>🔍</span>
-          <span>Ingresar código manualmente</span>
+          <span>⌨️</span>
+          <span>Búsqueda manual por teclado</span>
         </button>
       </div>
     </div>
