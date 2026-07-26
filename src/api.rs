@@ -1,12 +1,12 @@
 use crate::config::AppConfig;
-use crate::db;
+use crate::db::{self, ProductCache};
 use axum::{
     extract::{Query, State},
     http::StatusCode,
     response::IntoResponse,
     Json,
 };
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use sqlx::MySqlPool;
 use std::sync::Arc;
 
@@ -14,18 +14,13 @@ use std::sync::Arc;
 pub struct AppState {
     pub db_pool: MySqlPool,
     pub config: AppConfig,
+    pub cache: ProductCache,
 }
 
 #[derive(Deserialize)]
 pub struct ProductoQuery {
     pub codigo: String,
     pub sucursal: Option<String>,
-}
-
-#[derive(Serialize)]
-pub struct ErrorResponse {
-    pub error: String,
-    pub encontrado: bool,
 }
 
 pub async fn get_producto(
@@ -46,7 +41,7 @@ pub async fn get_producto(
         );
     }
 
-    match db::buscar_producto(&state.db_pool, &sucursal, params.codigo.trim()).await {
+    match db::buscar_producto_cached(&state.db_pool, &state.cache, &sucursal, params.codigo.trim()).await {
         Ok(Some(prod)) => (StatusCode::OK, Json(serde_json::to_value(prod).unwrap())),
         Ok(None) => (
             StatusCode::NOT_FOUND,

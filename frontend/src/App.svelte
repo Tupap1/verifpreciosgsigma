@@ -6,8 +6,19 @@
   let cartItems = [];
   let lastScannedCode = '';
   let notFoundMessage = '';
+  
+  // Security & Modals
   let showManualModal = false;
+  let showPinModal = false;
+  let showSettingsModal = false;
   let manualInput = '';
+  let adminPinInput = '';
+  let pinError = '';
+  let logoTapCount = 0;
+  let logoTapTimer = null;
+
+  // Admin PIN (default 1234)
+  const ADMIN_PIN = '1234';
 
   // Settings
   let serverHost = '';
@@ -39,7 +50,7 @@
   });
 
   function handleGlobalKeydown(e) {
-    if (showManualModal) return;
+    if (showManualModal || showPinModal || showSettingsModal) return;
 
     const now = Date.now();
 
@@ -110,6 +121,33 @@
     }
   }
 
+  // Secret 3-tap gesture on Title to prompt PIN for Settings
+  function handleSecretTitleTap() {
+    logoTapCount += 1;
+    if (logoTapTimer) clearTimeout(logoTapTimer);
+
+    if (logoTapCount >= 3) {
+      logoTapCount = 0;
+      adminPinInput = '';
+      pinError = '';
+      showPinModal = true;
+    } else {
+      logoTapTimer = setTimeout(() => {
+        logoTapCount = 0;
+      }, 1000);
+    }
+  }
+
+  function verifyAdminPin() {
+    if (adminPinInput === ADMIN_PIN) {
+      showPinModal = false;
+      showSettingsModal = true;
+      pinError = '';
+    } else {
+      pinError = 'Clave incorrecta (PIN Administrador)';
+    }
+  }
+
   function startAutoTimer(seconds) {
     clearAutoTimer();
     timerMax = seconds;
@@ -140,6 +178,12 @@
     notFoundMessage = '';
   }
 
+  function saveSettings() {
+    localStorage.setItem('vgs_server_host', serverHost);
+    localStorage.setItem('vgs_sucursal', sucursal);
+    showSettingsModal = false;
+  }
+
   function formatCurrency(amount) {
     if (amount === undefined || amount === null) return '$ 0';
     return new Intl.NumberFormat('es-CO', {
@@ -154,7 +198,8 @@
 <div class="kiosk-container">
   <!-- Top Bar: Header & Total Counter -->
   <div style="width: 100%; max-width: 800px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; padding: 0 0.5rem;">
-    <div style="text-align: left;">
+    <!-- Secret gesture trigger on title: 3 taps opens Admin PIN modal -->
+    <div style="text-align: left; cursor: default;" on:click={handleSecretTitleTap} role="button" tabindex="0">
       <h1 style="font-size: 1.8rem; font-weight: 800; color: var(--text-main); letter-spacing: -0.5px;">
         VERIFICADOR DE PRECIOS
       </h1>
@@ -279,6 +324,76 @@
             <button type="button" class="minimal-btn" on:click={() => (showManualModal = false)} style="flex: 1; background: #e2e8f0; color: var(--text-main);">Cancelar</button>
           </div>
         </form>
+      </div>
+    </div>
+  {/if}
+
+  <!-- Admin PIN Security Modal -->
+  {#if showPinModal}
+    <div style="position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; z-index: 120; padding: 1.5rem;">
+      <div class="card" style="max-width: 400px; text-align: left; background: #ffffff;">
+        <h3 style="font-size: 1.4rem; font-weight: 700; margin-bottom: 0.5rem;">🔒 Acceso Administrador</h3>
+        <p style="font-size: 0.95rem; color: var(--text-muted); margin-bottom: 1.2rem;">Ingrese la clave de seguridad PIN:</p>
+        
+        {#if pinError}
+          <div style="color: var(--accent-red); font-size: 0.9rem; font-weight: 600; margin-bottom: 1rem;">
+            {pinError}
+          </div>
+        {/if}
+
+        <form on:submit|preventDefault={verifyAdminPin}>
+          <input 
+            type="password" 
+            class="minimal-input" 
+            bind:value={adminPinInput} 
+            placeholder="Clave PIN (1234)" 
+            style="margin-bottom: 1.5rem; letter-spacing: 4px; font-size: 1.3rem; text-align: center;"
+          />
+          <div style="display: flex; gap: 0.8rem;">
+            <button type="submit" class="minimal-btn" style="flex: 1;">Acceder</button>
+            <button type="button" class="minimal-btn" on:click={() => (showPinModal = false)} style="flex: 1; background: #e2e8f0; color: var(--text-main);">Cancelar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  {/if}
+
+  <!-- Settings Modal (Secured with PIN) -->
+  {#if showSettingsModal}
+    <div style="position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; z-index: 130; padding: 1.5rem;">
+      <div class="card" style="max-width: 480px; text-align: left; background: #ffffff;">
+        <h2 style="font-size: 1.6rem; font-weight: 700; margin-bottom: 1.5rem;">⚙️ Configuración Administrador</h2>
+        
+        <div style="margin-bottom: 1.2rem;">
+          <label for="serverHostInput" style="display: block; font-size: 0.9rem; color: var(--text-muted); margin-bottom: 0.5rem;">IP / URL Servidor Local:</label>
+          <input 
+            id="serverHostInput"
+            type="text" 
+            class="minimal-input"
+            bind:value={serverHost} 
+            placeholder="http://192.168.1.50:8080" 
+          />
+        </div>
+
+        <div style="margin-bottom: 2rem;">
+          <label for="sucursalInput" style="display: block; font-size: 0.9rem; color: var(--text-muted); margin-bottom: 0.5rem;">Código de Sucursal (SUCCOD):</label>
+          <input 
+            id="sucursalInput"
+            type="text" 
+            class="minimal-input"
+            bind:value={sucursal} 
+            placeholder="01" 
+          />
+        </div>
+
+        <div style="display: flex; gap: 0.8rem;">
+          <button class="minimal-btn" on:click={saveSettings} style="flex: 1; background: var(--accent-green);">
+            Guardar
+          </button>
+          <button class="minimal-btn" on:click={() => (showSettingsModal = false)} style="flex: 1; background: #e2e8f0; color: var(--text-main);">
+            Cerrar
+          </button>
+        </div>
       </div>
     </div>
   {/if}

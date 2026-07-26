@@ -41,6 +41,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let shared_state = Arc::new(AppState {
         db_pool,
         config: config.clone(),
+        cache: db::ProductCache::default(),
     });
 
     // Iniciar worker de auto-actualización en segundo plano
