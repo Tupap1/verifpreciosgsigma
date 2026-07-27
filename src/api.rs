@@ -2,7 +2,7 @@ use crate::config::AppConfig;
 use crate::db::{self, ProductCache};
 use axum::{
     extract::{Query, State},
-    http::StatusCode,
+    http::{header, StatusCode},
     response::IntoResponse,
     Json,
 };
@@ -104,4 +104,27 @@ pub async fn sync_productos(
         }
     }
 }
+
+pub async fn download_apk() -> impl IntoResponse {
+    let path = "VerificadorGsigmaKiosk.apk";
+    match tokio::fs::read(path).await {
+        Ok(bytes) => (
+            [
+                (header::CONTENT_TYPE, "application/vnd.android.package-archive"),
+                (
+                    header::CONTENT_DISPOSITION,
+                    "attachment; filename=\"VerificadorGsigmaKiosk.apk\"",
+                ),
+            ],
+            bytes,
+        )
+            .into_response(),
+        Err(_) => (
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({ "error": "APK no encontrado en el servidor" })),
+        )
+            .into_response(),
+    }
+}
+
 
