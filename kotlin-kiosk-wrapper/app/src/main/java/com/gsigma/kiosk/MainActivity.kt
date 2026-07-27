@@ -33,6 +33,12 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
+        // Bloqueo agresivo de barra de estado y notificaciones a nivel de Window
+        @Suppress("DEPRECATION")
+        window.setFlags(
+            WindowManager.LayoutParams.FLAG_FULLSCREEN,
+            WindowManager.LayoutParams.FLAG_FULLSCREEN
+        )
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
         // Contenedor principal
@@ -194,6 +200,19 @@ class MainActivity : AppCompatActivity() {
         super.onWindowFocusChanged(hasFocus)
         if (hasFocus) {
             hideSystemUI()
+        } else {
+            // Si el usuario desliza la barra de notificaciones, cerrarla inmediatamente
+            closeSystemDialogs()
+        }
+    }
+
+    private fun closeSystemDialogs() {
+        try {
+            @Suppress("DEPRECATION")
+            val closeIntent = Intent(Intent.ACTION_CLOSE_SYSTEM_DIALOGS)
+            sendBroadcast(closeIntent)
+        } catch (e: Exception) {
+            // Ignore
         }
     }
 
