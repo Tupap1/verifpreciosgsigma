@@ -62,6 +62,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/api/productos/sync", get(api::sync_productos))
         .route("/api/health", get(api::health_check))
         .route("/api/config", get(api::get_config))
+        .route("/api/update", axum::routing::post(api::trigger_update))
         .route("/apk", get(api::download_apk))
         .fallback(static_handler)
         .layer(cors)

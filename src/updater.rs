@@ -40,3 +40,8 @@ pub async fn start_update_checker(config: AppConfig) {
         }
     }
 }
+
+pub async fn check_one_update(config: &AppConfig) {
+    info!("Verificando actualizaciones bajo demanda en GitHub Releases...");
+}
+

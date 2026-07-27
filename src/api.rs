@@ -1,5 +1,8 @@
 use crate::config::AppConfig;
-use crate::db::{self, ProductCache};
+use crate::{
+    db::{self, ProductCache},
+    updater,
+};
 use axum::{
     extract::{Query, State},
     http::{header, StatusCode},
@@ -126,5 +129,21 @@ pub async fn download_apk() -> impl IntoResponse {
             .into_response(),
     }
 }
+
+pub async fn trigger_update(State(state): State<Arc<AppState>>) -> impl IntoResponse {
+    let config = state.config.clone();
+    tokio::spawn(async move {
+        updater::check_one_update(&config).await;
+    });
+    (
+        StatusCode::OK,
+        Json(serde_json::json!({
+            "status": "buscando",
+            "message": "Buscando actualizaciones en GitHub Releases..."
+        })),
+    )
+}
+
+
 
 

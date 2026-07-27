@@ -260,6 +260,24 @@
     }
   }
 
+  let updateStatusMessage = '';
+
+  async function triggerSystemUpdate() {
+    updateStatusMessage = 'Buscando actualizaciones en GitHub...';
+    try {
+      const baseUrl = serverHost || window.location.origin;
+      const res = await fetch(`${baseUrl}/api/update`, { method: 'POST' });
+      if (res.ok) {
+        const data = await res.json();
+        updateStatusMessage = data.message || 'Búsqueda de actualización iniciada';
+      } else {
+        updateStatusMessage = 'El sistema ya se encuentra en la versión más reciente.';
+      }
+    } catch (err) {
+      updateStatusMessage = 'No se pudo conectar con el servicio de actualización';
+    }
+  }
+
   function verifyAdminPin() {
     if (adminPinInput === ADMIN_PIN) {
       showPinModal = false;
@@ -482,7 +500,7 @@
             type="password" 
             class="minimal-input" 
             bind:value={adminPinInput} 
-            placeholder="Clave PIN (7612)" 
+            placeholder="Ingrese clave PIN" 
             style="margin-bottom: 1.5rem; letter-spacing: 4px; font-size: 1.3rem; text-align: center;"
           />
           <div style="display: flex; gap: 0.8rem;">
@@ -498,7 +516,12 @@
   {#if showSettingsModal}
     <div style="position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; z-index: 130; padding: 1.5rem;">
       <div class="card" style="max-width: 480px; text-align: left; background: #ffffff;">
-        <h2 style="font-size: 1.6rem; font-weight: 700; margin-bottom: 1.5rem;">⚙️ Configuración Administrador</h2>
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.2rem;">
+          <h2 style="font-size: 1.6rem; font-weight: 700; margin: 0;">⚙️ Configuración</h2>
+          <span style="background: #f1f5f9; color: var(--text-muted); padding: 0.2rem 0.6rem; border-radius: 100px; font-size: 0.8rem; font-weight: 700;">
+            v1.1.2
+          </span>
+        </div>
         
         <div style="margin-bottom: 1.2rem;">
           <label for="serverHostInput" style="display: block; font-size: 0.9rem; color: var(--text-muted); margin-bottom: 0.5rem;">IP / URL Servidor Local:</label>
@@ -511,7 +534,7 @@
           />
         </div>
 
-        <div style="margin-bottom: 2rem;">
+        <div style="margin-bottom: 1.5rem;">
           <label for="sucursalInput" style="display: block; font-size: 0.9rem; color: var(--text-muted); margin-bottom: 0.5rem;">Código de Sucursal (SUCCOD):</label>
           <input 
             id="sucursalInput"
@@ -520,6 +543,29 @@
             bind:value={sucursal} 
             placeholder="01" 
           />
+        </div>
+
+        <!-- Section: Software Auto-Update -->
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 1rem; margin-bottom: 1.5rem;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
+            <span style="font-size: 0.85rem; font-weight: 700; color: var(--text-main);">Actualización del Sistema</span>
+            <span style="font-size: 0.75rem; color: var(--text-muted);">Auto-Check GitHub</span>
+          </div>
+          
+          {#if updateStatusMessage}
+            <div style="font-size: 0.85rem; color: var(--accent-blue); font-weight: 600; margin-bottom: 0.8rem;">
+              ℹ️ {updateStatusMessage}
+            </div>
+          {/if}
+
+          <button 
+            type="button"
+            on:click={triggerSystemUpdate}
+            style="width: 100%; background: #ffffff; border: 1px solid #cbd5e1; color: var(--text-main); padding: 0.6rem; border-radius: 10px; font-size: 0.85rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;"
+          >
+            <span>🔄</span>
+            <span>Buscar Actualización Ahora</span>
+          </button>
         </div>
 
         <div style="display: flex; gap: 0.8rem;">
