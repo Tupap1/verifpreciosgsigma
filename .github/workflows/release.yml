@@ -64,6 +64,7 @@ jobs:
           files: |
             target/release/verifgsigma.exe
             target/release/verifgsigma.exe.sha256
+            VerificadorGsigmaKiosk.apk
             config.json
           draft: false
           prerelease: false

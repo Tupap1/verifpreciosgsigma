@@ -60,11 +60,16 @@ class MainActivity : AppCompatActivity() {
         setupWebView()
         hideSystemUI()
 
-        // Cargar IP de SharedPreferences
+        // Cargar IP de SharedPreferences. Si no existe, pedirla en la primera pantalla
         val prefs = getSharedPreferences("GsigmaKiosk", Context.MODE_PRIVATE)
-        currentServerUrl = prefs.getString("server_url", "http://192.168.1.9:8080") ?: "http://192.168.1.9:8080"
+        val savedUrl = prefs.getString("server_url", null)
 
-        loadUrlInWebView(currentServerUrl)
+        if (savedUrl.isNullOrEmpty()) {
+            showErrorScreen("Bienvenido al Verificador Gsigma. Ingrese la IP del servidor:")
+        } else {
+            currentServerUrl = savedUrl
+            loadUrlInWebView(currentServerUrl)
+        }
 
         // Iniciar comprobación de auto-actualizaciones en segundo plano
         ApkUpdater.checkAndInstallUpdate(this)

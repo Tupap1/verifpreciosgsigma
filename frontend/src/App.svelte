@@ -44,6 +44,12 @@
     sucursal = localStorage.getItem('vgs_sucursal') || '01';
 
     window.addEventListener('keydown', handleGlobalKeydown);
+    window.addEventListener('online', handleOnlineStatus);
+    window.addEventListener('offline', handleOfflineStatus);
+
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      isOfflineMode = true;
+    }
 
     // Initialize IndexedDB and start background sync
     initIndexedDB().then(() => {
@@ -54,9 +60,20 @@
   onDestroy(() => {
     if (typeof window !== 'undefined') {
       window.removeEventListener('keydown', handleGlobalKeydown);
+      window.removeEventListener('online', handleOnlineStatus);
+      window.removeEventListener('offline', handleOfflineStatus);
     }
     clearAutoTimer();
   });
+
+  function handleOnlineStatus() {
+    isOfflineMode = false;
+    syncOfflineData();
+  }
+
+  function handleOfflineStatus() {
+    isOfflineMode = true;
+  }
 
   // IndexedDB Native Initializer
   function initIndexedDB() {
@@ -88,6 +105,8 @@
 
   // Background bulk sync from Rust backend into IndexedDB
   async function syncOfflineData() {
+    if (typeof navigator !== 'undefined' && !navigator.onLine) return;
+
     try {
       const baseUrl = serverHost || window.location.origin;
       const res = await fetch(`${baseUrl}/api/productos/sync?sucursal=${encodeURIComponent(sucursal)}`);
@@ -105,7 +124,7 @@
     }
   }
 
-  // Search local IndexedDB fallback if network fails
+  // Search local IndexedDB fallback (Instant <1ms lookup)
   function searchOfflineDB(code) {
     return new Promise((resolve) => {
       if (!db) {
@@ -166,35 +185,32 @@
 
     let productData = null;
 
-    // 1. Intentar consulta de red
-    try {
-      const baseUrl = serverHost || window.location.origin;
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 2000); // 2s timeout
+    // Si ya detectamos offline o navigator.onLine es false -> CONSULTA INSTANTÁNEA EN INDEXEDDB (0ms delay)
+    if (isOfflineMode || (typeof navigator !== 'undefined' && !navigator.onLine)) {
+      productData = await searchOfflineDB(code);
+    } else {
+      // Si estamos online -> consultar red con timeout ultra rápido de 800ms
+      try {
+        const baseUrl = serverHost || window.location.origin;
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 800); // 800ms max
 
-      const res = await fetch(`${baseUrl}/api/producto?codigo=${encodeURIComponent(code)}&sucursal=${encodeURIComponent(sucursal)}`, {
-        signal: controller.signal
-      });
-      clearTimeout(timeoutId);
+        const res = await fetch(`${baseUrl}/api/producto?codigo=${encodeURIComponent(code)}&sucursal=${encodeURIComponent(sucursal)}`, {
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
 
-      if (res.ok) {
-        const data = await res.json();
-        if (data && data.encontrado) {
-          productData = data;
-          isOfflineMode = false;
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.encontrado) {
+            productData = data;
+            isOfflineMode = false;
+          }
         }
-      }
-    } catch (err) {
-      console.warn('Fallo de red, intentando respaldo IndexedDB...', err);
-      isOfflineMode = true;
-    }
-
-    // 2. Si falló la red o no respondió, buscar en IndexedDB offline
-    if (!productData && db) {
-      const offlineResult = await searchOfflineDB(code);
-      if (offlineResult) {
-        productData = offlineResult;
+      } catch (err) {
+        console.warn('Fallo de red o timeout, buscando instantáneamente en IndexedDB...', err);
         isOfflineMode = true;
+        productData = await searchOfflineDB(code);
       }
     }
 
@@ -303,20 +319,20 @@
 </script>
 
 <div class="kiosk-container">
-  <!-- Top Bar: Header & Total Counter -->
+  <!-- Top Bar: Header Title & Status -->
   <div style="width: 100%; max-width: 800px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; padding: 0 0.5rem;">
     <!-- Secret gesture trigger on title: 3 taps opens Admin PIN modal -->
     <div style="text-align: left; cursor: default;" on:click={handleSecretTitleTap} role="button" tabindex="0">
-      <div style="display: flex; align-items: center; gap: 8px;">
+      <div style="display: flex; align-items: center; gap: 10px;">
         <h1 style="font-size: 1.8rem; font-weight: 800; color: var(--text-main); letter-spacing: -0.5px;">
           VERIFICADOR DE PRECIOS
         </h1>
         {#if isOfflineMode}
-          <span style="background: rgba(217,119,6,0.1); color: var(--accent-gold); border: 1px solid rgba(217,119,6,0.3); padding: 0.2rem 0.6rem; border-radius: 100px; font-size: 0.75rem; font-weight: 700;">OFFLINE</span>
+          <span style="background: rgba(217,119,6,0.12); color: #d97706; border: 1px solid rgba(217,119,6,0.3); padding: 0.25rem 0.75rem; border-radius: 100px; font-size: 0.75rem; font-weight: 800; letter-spacing: 0.5px;">OFFLINE</span>
         {/if}
       </div>
       <p style="font-size: 0.95rem; color: var(--text-muted);">
-        Escanee sus productos consecutivamente
+        Pase sus productos por el lector de barras
       </p>
     </div>
 
@@ -331,23 +347,31 @@
   </div>
 
   <!-- Main Content Area -->
-  <div class="card" style="max-width: 800px; min-height: 420px; display: flex; flex-direction: column; justify-content: space-between;">
+  <div class="card" style="max-width: 800px; min-height: 400px; display: flex; flex-direction: column; justify-content: space-between;">
     
     {#if cartItems.length === 0 && !notFoundMessage}
-      <!-- Standby State -->
-      <div style="margin: auto 0; padding: 2rem 0;">
-        <div class="scanner-box" on:click={() => (showManualModal = true)} role="button" tabindex="0">
-          <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+      <!-- Standby Clean State -->
+      <div style="margin: auto 0; padding: 3rem 1rem; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+        <div class="scanner-box" on:click={() => (showManualModal = true)} role="button" tabindex="0" style="margin-bottom: 1.5rem;">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
             <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 013.75 9.375v-4.5zM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 01-1.125-1.125v-4.5zM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0113.5 9.375v-4.5z" />
             <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 6.75h.008v.008H6.75V6.75zM6.75 16.5h.008v.008H6.75V16.5zM16.5 6.75h.008v.008H16.5V6.75zM13.5 13.5h3v3h-3zM16.5 16.5h3v3h-3zM13.5 19.5h3v.008h-3z" />
           </svg>
         </div>
-        <h2 style="font-size: 1.8rem; font-weight: 700; color: var(--text-main); margin-bottom: 0.5rem;">
-          Pase el código por el lector
+        <h2 style="font-size: 1.9rem; font-weight: 800; color: var(--text-main); margin-bottom: 0.6rem;">
+          Pase el código por el lector de barras
         </h2>
-        <p style="font-size: 1.1rem; color: var(--text-muted);">
-          Los precios se irán sumando automáticamente
+        <p style="font-size: 1.05rem; color: var(--text-muted); margin-bottom: 1.8rem;">
+          Los productos escaneados aparecerán en pantalla
         </p>
+
+        <button 
+          on:click={() => (showManualModal = true)}
+          style="background: #ffffff; border: 1.5px solid #cbd5e1; color: var(--text-main); padding: 0.8rem 1.4rem; border-radius: 100px; font-size: 0.95rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.04);"
+        >
+          <span>🔍</span>
+          <span>Ingresar código manual</span>
+        </button>
       </div>
 
     {:else}
@@ -390,25 +414,25 @@
           </tbody>
         </table>
       </div>
-    {/if}
 
-    <!-- Total Banner at Bottom -->
-    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 20px; padding: 1.2rem 1.5rem; display: flex; align-items: center; justify-content: space-between; margin-top: 1rem;">
-      <div style="text-align: left;">
-        <span style="font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600; letter-spacing: 1px;">TOTAL ACUMULADO</span>
-        <div style="font-size: 2.8rem; font-weight: 900; color: var(--accent-green); line-height: 1;">
-          {formatCurrency(cartTotal)}
+      <!-- Total Banner at Bottom (ONLY shown when products exist) -->
+      <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 20px; padding: 1.2rem 1.5rem; display: flex; align-items: center; justify-content: space-between; margin-top: 1rem;">
+        <div style="text-align: left;">
+          <span style="font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600; letter-spacing: 1px;">TOTAL ACUMULADO</span>
+          <div style="font-size: 2.8rem; font-weight: 900; color: var(--accent-green); line-height: 1;">
+            {formatCurrency(cartTotal)}
+          </div>
         </div>
-      </div>
 
-      <button 
-        on:click={() => (showManualModal = true)}
-        style="background: #ffffff; border: 1px solid #cbd5e1; color: var(--text-main); padding: 0.75rem 1.2rem; border-radius: 100px; font-size: 0.95rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; box-shadow: 0 2px 6px rgba(0,0,0,0.04);"
-      >
-        <span>🔍</span>
-        <span>Código manual</span>
-      </button>
-    </div>
+        <button 
+          on:click={() => (showManualModal = true)}
+          style="background: #ffffff; border: 1px solid #cbd5e1; color: var(--text-main); padding: 0.75rem 1.2rem; border-radius: 100px; font-size: 0.95rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; box-shadow: 0 2px 6px rgba(0,0,0,0.04);"
+        >
+          <span>🔍</span>
+          <span>Código manual</span>
+        </button>
+      </div>
+    {/if}
 
     <!-- Timer progress bar that clears after 6 seconds of inactivity -->
     {#if cartItems.length > 0 || notFoundMessage}
@@ -483,7 +507,7 @@
             type="text" 
             class="minimal-input"
             bind:value={serverHost} 
-            placeholder="http://192.168.1.50:8080" 
+            placeholder="http://192.168.1.9:8080" 
           />
         </div>
 
