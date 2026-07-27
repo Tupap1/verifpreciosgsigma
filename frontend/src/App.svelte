@@ -18,8 +18,8 @@
   let logoTapCount = 0;
   let logoTapTimer = null;
 
-  // Admin PIN (default 1234)
-  const ADMIN_PIN = '1234';
+  // Admin PIN (default 7612)
+  const ADMIN_PIN = '7612';
 
   // Settings
   let serverHost = '';
@@ -482,7 +482,7 @@
             type="password" 
             class="minimal-input" 
             bind:value={adminPinInput} 
-            placeholder="Clave PIN (1234)" 
+            placeholder="Clave PIN (7612)" 
             style="margin-bottom: 1.5rem; letter-spacing: 4px; font-size: 1.3rem; text-align: center;"
           />
           <div style="display: flex; gap: 0.8rem;">
