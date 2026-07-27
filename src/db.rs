@@ -125,3 +125,54 @@ pub async fn buscar_producto_cached(
 
     Ok(resultado)
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProductoSyncDto {
+    pub c: String, // codigo
+    pub n: String, // nombre
+    pub p: f64,    // precio
+    pub e: f64,    // existencia
+    pub u: String, // unidad
+}
+
+pub async fn obtener_todos_productos_sync(
+    pool: &MySqlPool,
+    sucursal: &str,
+) -> Result<Vec<ProductoSyncDto>, sqlx::Error> {
+    let query = "
+        SELECT 
+            a.ARTCOD, 
+            p.PASNOM AS ARTNOM, 
+            a.ARTPRE, 
+            a.ARTEXI,
+            p.PASUNIMED AS ARTUNIDAD
+        FROM artic a 
+        JOIN pas p ON a.ARTCOD = p.PAS 
+        WHERE a.SUCCOD = ?;
+    ";
+
+    let rows = sqlx::query(query)
+        .bind(sucursal)
+        .fetch_all(pool)
+        .await?;
+
+    let mut lista = Vec::new();
+    for r in rows {
+        let raw_cod: String = r.try_get("ARTCOD").unwrap_or_default();
+        let raw_nom: String = r.try_get("ARTNOM").unwrap_or_default();
+        let raw_pre: f64 = r.try_get("ARTPRE").unwrap_or(0.0);
+        let raw_exi: f64 = r.try_get("ARTEXI").unwrap_or(0.0);
+        let raw_uni: String = r.try_get("ARTUNIDAD").unwrap_or_else(|_| "UND".to_string());
+
+        lista.push(ProductoSyncDto {
+            c: raw_cod.trim().to_string(),
+            n: raw_nom.trim().to_string(),
+            p: raw_pre,
+            e: raw_exi,
+            u: raw_uni.trim().to_string(),
+        });
+    }
+
+    Ok(lista)
+}
+

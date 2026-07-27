@@ -6,6 +6,7 @@
   let cartItems = [];
   let lastScannedCode = '';
   let notFoundMessage = '';
+  let isOfflineMode = false;
   
   // Security & Modals
   let showManualModal = false;
@@ -24,7 +25,7 @@
   let serverHost = '';
   let sucursal = '01';
 
-  // Inactivity timer state (6 seconds after last scan, auto-clears cart for next customer)
+  // Inactivity timer state (6 seconds after last scan, auto-clears cart)
   let timerMax = 6;
   let timerCurrent = 6;
   let timerInterval = null;
@@ -33,6 +34,9 @@
   let inputBuffer = '';
   let lastKeyTime = 0;
 
+  // IndexedDB reference for offline resilience
+  let db = null;
+
   $: cartTotal = cartItems.reduce((acc, item) => acc + item.precio * item.qty, 0);
 
   onMount(() => {
@@ -40,6 +44,11 @@
     sucursal = localStorage.getItem('vgs_sucursal') || '01';
 
     window.addEventListener('keydown', handleGlobalKeydown);
+
+    // Initialize IndexedDB and start background sync
+    initIndexedDB().then(() => {
+      syncOfflineData();
+    });
   });
 
   onDestroy(() => {
@@ -48,6 +57,84 @@
     }
     clearAutoTimer();
   });
+
+  // IndexedDB Native Initializer
+  function initIndexedDB() {
+    return new Promise((resolve) => {
+      if (typeof window === 'undefined' || !('indexedDB' in window)) {
+        resolve();
+        return;
+      }
+
+      const request = window.indexedDB.open('vgs_offline_db', 1);
+
+      request.onupgradeneeded = (e) => {
+        const database = e.target.result;
+        if (!database.objectStoreNames.contains('productos')) {
+          database.createObjectStore('productos', { keyPath: 'c' });
+        }
+      };
+
+      request.onsuccess = (e) => {
+        db = e.target.result;
+        resolve();
+      };
+
+      request.onerror = () => {
+        resolve();
+      };
+    });
+  }
+
+  // Background bulk sync from Rust backend into IndexedDB
+  async function syncOfflineData() {
+    try {
+      const baseUrl = serverHost || window.location.origin;
+      const res = await fetch(`${baseUrl}/api/productos/sync?sucursal=${encodeURIComponent(sucursal)}`);
+      if (res.ok) {
+        const items = await res.json();
+        if (db && Array.isArray(items) && items.length > 0) {
+          const tx = db.transaction('productos', 'readwrite');
+          const store = tx.objectStore('productos');
+          items.forEach(item => store.put(item));
+        }
+        isOfflineMode = false;
+      }
+    } catch (err) {
+      console.warn('Sync background offline:', err);
+    }
+  }
+
+  // Search local IndexedDB fallback if network fails
+  function searchOfflineDB(code) {
+    return new Promise((resolve) => {
+      if (!db) {
+        resolve(null);
+        return;
+      }
+      const tx = db.transaction('productos', 'readonly');
+      const store = tx.objectStore('productos');
+      const request = store.get(code);
+
+      request.onsuccess = () => {
+        if (request.result) {
+          const res = request.result;
+          resolve({
+            codigo: res.c,
+            nombre: res.n,
+            precio: res.p,
+            existencia: res.e,
+            unidad: res.u || 'UND',
+            encontrado: true
+          });
+        } else {
+          resolve(null);
+        }
+      };
+
+      request.onerror = () => resolve(null);
+    });
+  }
 
   function handleGlobalKeydown(e) {
     if (showManualModal || showPinModal || showSettingsModal) return;
@@ -77,39 +164,58 @@
     notFoundMessage = '';
     showManualModal = false;
 
+    let productData = null;
+
+    // 1. Intentar consulta de red
     try {
       const baseUrl = serverHost || window.location.origin;
-      const url = `${baseUrl}/api/producto?codigo=${encodeURIComponent(code)}&sucursal=${encodeURIComponent(sucursal)}`;
-      
-      const res = await fetch(url);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 2000); // 2s timeout
+
+      const res = await fetch(`${baseUrl}/api/producto?codigo=${encodeURIComponent(code)}&sucursal=${encodeURIComponent(sucursal)}`, {
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+
       if (res.ok) {
         const data = await res.json();
         if (data && data.encontrado) {
-          // Check if item already exists in cart -> increment quantity
-          const existingIndex = cartItems.findIndex(i => i.codigo === data.codigo);
-          if (existingIndex >= 0) {
-            cartItems[existingIndex].qty += 1;
-            cartItems = [...cartItems];
-          } else {
-            cartItems = [{
-              codigo: data.codigo,
-              nombre: data.nombre,
-              precio: data.precio,
-              existencia: data.existencia,
-              unidad: data.unidad || 'UND',
-              qty: 1
-            }, ...cartItems];
-          }
-          startAutoTimer(6);
-          return;
+          productData = data;
+          isOfflineMode = false;
         }
       }
-      
-      notFoundMessage = `Código ${code} no registrado`;
-      startAutoTimer(6);
     } catch (err) {
-      console.error('Fetch error:', err);
-      notFoundMessage = 'Error de conexión con el servidor';
+      console.warn('Fallo de red, intentando respaldo IndexedDB...', err);
+      isOfflineMode = true;
+    }
+
+    // 2. Si falló la red o no respondió, buscar en IndexedDB offline
+    if (!productData && db) {
+      const offlineResult = await searchOfflineDB(code);
+      if (offlineResult) {
+        productData = offlineResult;
+        isOfflineMode = true;
+      }
+    }
+
+    if (productData) {
+      const existingIndex = cartItems.findIndex(i => i.codigo === productData.codigo);
+      if (existingIndex >= 0) {
+        cartItems[existingIndex].qty += 1;
+        cartItems = [...cartItems];
+      } else {
+        cartItems = [{
+          codigo: productData.codigo,
+          nombre: productData.nombre,
+          precio: productData.precio,
+          existencia: productData.existencia,
+          unidad: productData.unidad || 'UND',
+          qty: 1
+        }, ...cartItems];
+      }
+      startAutoTimer(6);
+    } else {
+      notFoundMessage = `Código ${code} no registrado`;
       startAutoTimer(6);
     }
   }
@@ -182,6 +288,7 @@
     localStorage.setItem('vgs_server_host', serverHost);
     localStorage.setItem('vgs_sucursal', sucursal);
     showSettingsModal = false;
+    syncOfflineData();
   }
 
   function formatCurrency(amount) {
@@ -200,9 +307,14 @@
   <div style="width: 100%; max-width: 800px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; padding: 0 0.5rem;">
     <!-- Secret gesture trigger on title: 3 taps opens Admin PIN modal -->
     <div style="text-align: left; cursor: default;" on:click={handleSecretTitleTap} role="button" tabindex="0">
-      <h1 style="font-size: 1.8rem; font-weight: 800; color: var(--text-main); letter-spacing: -0.5px;">
-        VERIFICADOR DE PRECIOS
-      </h1>
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <h1 style="font-size: 1.8rem; font-weight: 800; color: var(--text-main); letter-spacing: -0.5px;">
+          VERIFICADOR DE PRECIOS
+        </h1>
+        {#if isOfflineMode}
+          <span style="background: rgba(217,119,6,0.1); color: var(--accent-gold); border: 1px solid rgba(217,119,6,0.3); padding: 0.2rem 0.6rem; border-radius: 100px; font-size: 0.75rem; font-weight: 700;">OFFLINE</span>
+        {/if}
+      </div>
       <p style="font-size: 0.95rem; color: var(--text-muted);">
         Escanee sus productos consecutivamente
       </p>
@@ -388,7 +500,7 @@
 
         <div style="display: flex; gap: 0.8rem;">
           <button class="minimal-btn" on:click={saveSettings} style="flex: 1; background: var(--accent-green);">
-            Guardar
+            Guardar y Sincronizar
           </button>
           <button class="minimal-btn" on:click={() => (showSettingsModal = false)} style="flex: 1; background: #e2e8f0; color: var(--text-main);">
             Cerrar

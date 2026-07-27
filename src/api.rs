@@ -79,3 +79,29 @@ pub async fn health_check(State(state): State<Arc<AppState>>) -> impl IntoRespon
 pub async fn get_config(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     (StatusCode::OK, Json(state.config.clone()))
 }
+
+#[derive(Deserialize)]
+pub struct SyncQuery {
+    pub sucursal: Option<String>,
+}
+
+pub async fn sync_productos(
+    State(state): State<Arc<AppState>>,
+    Query(params): Query<SyncQuery>,
+) -> impl IntoResponse {
+    let sucursal = params
+        .sucursal
+        .unwrap_or_else(|| state.config.sucursal.clone());
+
+    match db::obtener_todos_productos_sync(&state.db_pool, &sucursal).await {
+        Ok(lista) => (StatusCode::OK, Json(serde_json::to_value(lista).unwrap())),
+        Err(err) => {
+            tracing::error!("Error al realizar sync masivo: {:?}", err);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({ "error": "Error interno en sync" })),
+            )
+        }
+    }
+}
+

@@ -59,6 +59,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Configurar rutas API y Servidor de Archivos Estáticos (Frontend Embebido)
     let app = Router::new()
         .route("/api/producto", get(api::get_producto))
+        .route("/api/productos/sync", get(api::sync_productos))
         .route("/api/health", get(api::health_check))
         .route("/api/config", get(api::get_config))
         .fallback(static_handler)

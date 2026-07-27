@@ -1,6 +1,13 @@
 # Rust target directory
 /target/
 
+# Android SDK & Build folders
+/android-sdk/
+/kotlin-kiosk-wrapper/build/
+/kotlin-kiosk-wrapper/app/build/
+/kotlin-kiosk-wrapper/.gradle/
+/kotlin-kiosk-wrapper/.idea/
+
 # Node dependencies & builds
 /frontend/node_modules/
 /frontend/build/
