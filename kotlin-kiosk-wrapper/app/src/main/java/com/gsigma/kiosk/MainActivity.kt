@@ -18,6 +18,9 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import java.net.HttpURLConnection
+import java.net.URL
+import kotlin.concurrent.thread
 
 class MainActivity : AppCompatActivity() {
 
@@ -25,15 +28,17 @@ class MainActivity : AppCompatActivity() {
     private lateinit var webView: WebView
     private lateinit var errorLayout: LinearLayout
     private lateinit var txtErrorMsg: TextView
+    private lateinit var txtTestResult: TextView
     private lateinit var inputServerIp: EditText
-    private lateinit var btnRetry: Button
+    private lateinit var btnTestConn: Button
+    private lateinit var btnSaveAndConnect: Button
 
     private var currentServerUrl: String = "http://192.168.1.9:8080"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
-        // Bloqueo agresivo de barra de estado y notificaciones a nivel de Window
+        // Bloqueo de la barra de estado a nivel de Window
         @Suppress("DEPRECATION")
         window.setFlags(
             WindowManager.LayoutParams.FLAG_FULLSCREEN,
@@ -41,7 +46,6 @@ class MainActivity : AppCompatActivity() {
         )
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
-        // Contenedor principal
         mainLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             layoutParams = LinearLayout.LayoutParams(
@@ -66,7 +70,7 @@ class MainActivity : AppCompatActivity() {
         setupWebView()
         hideSystemUI()
 
-        // Cargar IP de SharedPreferences. Si no existe, pedirla en la primera pantalla
+        // Cargar IP guardada o mostrar la pantalla de configuración inicial
         val prefs = getSharedPreferences("GsigmaKiosk", Context.MODE_PRIVATE)
         val savedUrl = prefs.getString("server_url", null)
 
@@ -74,7 +78,9 @@ class MainActivity : AppCompatActivity() {
             showErrorScreen("Bienvenido al Verificador Gsigma. Ingrese la IP del servidor:")
         } else {
             currentServerUrl = savedUrl
-            loadUrlInWebView(currentServerUrl)
+            inputServerIp.setText(currentServerUrl)
+            // Probar conexión antes de cargar el WebView
+            testAndConnect(currentServerUrl, autoLoad = true)
         }
 
         // Iniciar comprobación de auto-actualizaciones en segundo plano
@@ -94,46 +100,124 @@ class MainActivity : AppCompatActivity() {
         }
 
         val title = TextView(this).apply {
-            text = "⚠️ Error de Conexión"
+            text = "⚙️ Configuración del Servidor"
             textSize = 24f
             gravity = Gravity.CENTER
-            setPadding(0, 0, 0, 20)
+            setPadding(0, 0, 0, 15)
         }
 
         txtErrorMsg = TextView(this).apply {
-            text = "No se pudo conectar al servidor."
-            textSize = 16f
+            text = "Ingrese la dirección IP del servidor local:"
+            textSize = 15f
             gravity = Gravity.CENTER
-            setPadding(0, 0, 0, 30)
+            setPadding(0, 0, 0, 20)
         }
 
         inputServerIp = EditText(this).apply {
             hint = "http://192.168.1.9:8080"
             setPadding(30, 30, 30, 30)
+            setText("http://192.168.1.9:8080")
         }
 
-        btnRetry = Button(this).apply {
-            text = "🔄 Guardar IP y Conectar"
-            setPadding(30, 30, 30, 30)
+        txtTestResult = TextView(this).apply {
+            text = ""
+            textSize = 14f
+            gravity = Gravity.CENTER
+            setPadding(0, 15, 0, 20)
+        }
+
+        val btnContainer = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(0, 10, 0, 0)
+        }
+
+        btnTestConn = Button(this).apply {
+            text = "🧪 Probar Conexión"
             setOnClickListener {
-                val newUrl = inputServerIp.text.toString().trim()
-                if (newUrl.isNotEmpty()) {
-                    currentServerUrl = newUrl
-                    val prefs = getSharedPreferences("GsigmaKiosk", Context.MODE_PRIVATE)
-                    prefs.edit().putString("server_url", newUrl).apply()
-                    
-                    showWebView()
-                    loadUrlInWebView(currentServerUrl)
+                val url = inputServerIp.text.toString().trim()
+                if (url.isNotEmpty()) {
+                    testAndConnect(url, autoLoad = false)
                 } else {
-                    Toast.makeText(this@MainActivity, "Ingrese una URL/IP válida", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this@MainActivity, "Ingrese una IP válida", Toast.LENGTH_SHORT).show()
                 }
             }
         }
 
+        btnSaveAndConnect = Button(this).apply {
+            text = "💾 Guardar y Conectar"
+            setOnClickListener {
+                val url = inputServerIp.text.toString().trim()
+                if (url.isNotEmpty()) {
+                    testAndConnect(url, autoLoad = true)
+                } else {
+                    Toast.makeText(this@MainActivity, "Ingrese una IP válida", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+
+        btnContainer.addView(btnTestConn, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        btnContainer.addView(btnSaveAndConnect, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+
         errorLayout.addView(title)
         errorLayout.addView(txtErrorMsg)
         errorLayout.addView(inputServerIp)
-        errorLayout.addView(btnRetry)
+        errorLayout.addView(txtTestResult)
+        errorLayout.addView(btnContainer)
+    }
+
+    private fun testAndConnect(targetUrl: String, autoLoad: Boolean) {
+        val cleanUrl = if (!targetUrl.startsWith("http://") && !targetUrl.startsWith("https://")) {
+            "http://$targetUrl"
+        } else {
+            targetUrl
+        }
+
+        runOnUiThread {
+            txtTestResult.text = "⌛ Probando conexión a $cleanUrl..."
+            txtTestResult.setTextColor(0xFF007ACC.toInt())
+        }
+
+        thread {
+            var success = false
+            var errorDetails = ""
+
+            try {
+                val healthUrl = URL("${cleanUrl.trimEnd('/')}/api/health")
+                val conn = healthUrl.openConnection() as HttpURLConnection
+                conn.connectTimeout = 3000
+                conn.readTimeout = 3000
+                conn.requestMethod = "GET"
+
+                if (conn.responseCode == 200) {
+                    success = true
+                } else {
+                    errorDetails = "HTTP Status ${conn.responseCode}"
+                }
+            } catch (e: Exception) {
+                errorDetails = e.localizedMessage ?: "Timeout / Red inaccesible"
+            }
+
+            runOnUiThread {
+                if (success) {
+                    txtTestResult.text = "🟢 ✅ Conexión Exitosa con el Servidor"
+                    txtTestResult.setTextColor(0xFF059669.toInt())
+
+                    // Guardar IP en SharedPreferences
+                    currentServerUrl = cleanUrl
+                    val prefs = getSharedPreferences("GsigmaKiosk", Context.MODE_PRIVATE)
+                    prefs.edit().putString("server_url", cleanUrl).apply()
+
+                    if (autoLoad) {
+                        showWebView()
+                        loadUrlInWebView(cleanUrl)
+                    }
+                } else {
+                    txtTestResult.text = "🔴 ❌ Falló la conexión ($errorDetails)\nVerifique la IP y que el servidor esté encendido."
+                    txtTestResult.setTextColor(0xFFDC2626.toInt())
+                    showErrorScreen("No se pudo conectar a $cleanUrl")
+                }
+            }
+        }
     }
 
     private fun setupWebView() {
@@ -157,7 +241,7 @@ class MainActivity : AppCompatActivity() {
             ) {
                 super.onReceivedError(view, request, error)
                 if (request?.isForMainFrame == true) {
-                    showErrorScreen("No se pudo conectar a $currentServerUrl")
+                    showErrorScreen("Error al cargar la página: $currentServerUrl")
                 }
             }
 
@@ -169,7 +253,7 @@ class MainActivity : AppCompatActivity() {
                 failingUrl: String?
             ) {
                 super.onReceivedError(view, errorCode, description, failingUrl)
-                showErrorScreen("No se pudo conectar a $currentServerUrl")
+                showErrorScreen("Error al cargar la página: $currentServerUrl")
             }
         }
     }
@@ -201,7 +285,6 @@ class MainActivity : AppCompatActivity() {
         if (hasFocus) {
             hideSystemUI()
         } else {
-            // Si el usuario desliza la barra de notificaciones, cerrarla inmediatamente
             closeSystemDialogs()
         }
     }
