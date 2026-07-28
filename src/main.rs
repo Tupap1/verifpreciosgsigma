@@ -66,10 +66,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/api/health", get(api::health_check))
         .route("/api/config", get(api::get_config))
         .route("/api/update", axum::routing::post(api::trigger_update))
+        .route("/api/admin/verify-pin", axum::routing::post(api::verify_admin_pin))
         .route("/apk", get(api::download_apk))
         .fallback(static_handler)
         .layer(cors)
-        .with_state(shared_state);
+        .with_state(shared_state.clone());
+
+    // Iniciar tarea de evicción de caché expirada cada 10 minutos para optimizar memoria RAM
+    let cache_clone = shared_state.cache.clone();
+    tokio::spawn(async move {
+        loop {
+            tokio::time::sleep(std::time::Duration::from_secs(600)).await;
+            cache_clone.evict_expired();
+        }
+    });
 
     // Intentar vincular al puerto configurado en config.json (ej: 8080), con fallback si está ocupado
     let candidate_ports = [config.puerto, 8080, 8085, 8090, 8081, 8888];
@@ -121,13 +131,14 @@ async fn static_handler(uri: Uri) -> impl IntoResponse {
     match Assets::get(&path) {
         Some(content) => {
             let mime = mime_guess::from_path(&path).first_or_octet_stream();
+            let mime_val = match HeaderValue::from_str(mime.as_ref()) {
+                Ok(v) => v,
+                Err(_) => HeaderValue::from_static("application/octet-stream"),
+            };
             Response::builder()
-                .header(
-                    header::CONTENT_TYPE,
-                    HeaderValue::from_str(mime.as_ref()).unwrap(),
-                )
+                .header(header::CONTENT_TYPE, mime_val)
                 .body(Body::from(content.data))
-                .unwrap()
+                .unwrap_or_else(|_| Response::builder().status(StatusCode::INTERNAL_SERVER_ERROR).body(Body::empty()).unwrap())
         }
         None => {
             // Fallback a index.html para soporte de SPA routing
@@ -135,12 +146,12 @@ async fn static_handler(uri: Uri) -> impl IntoResponse {
                 Response::builder()
                     .header(header::CONTENT_TYPE, HeaderValue::from_static("text/html"))
                     .body(Body::from(content.data))
-                    .unwrap()
+                    .unwrap_or_else(|_| Response::builder().status(StatusCode::INTERNAL_SERVER_ERROR).body(Body::empty()).unwrap())
             } else {
                 Response::builder()
                     .status(StatusCode::NOT_FOUND)
                     .body(Body::from("404 Not Found"))
-                    .unwrap()
+                    .unwrap_or_else(|_| Response::builder().status(StatusCode::INTERNAL_SERVER_ERROR).body(Body::empty()).unwrap())
             }
         }
     }

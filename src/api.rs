@@ -144,6 +144,26 @@ pub async fn trigger_update(State(state): State<Arc<AppState>>) -> impl IntoResp
     )
 }
 
+#[derive(serde::Deserialize)]
+pub struct PinRequest {
+    pub pin: String,
+}
+
+pub async fn verify_admin_pin(Json(payload): Json<PinRequest>) -> impl IntoResponse {
+    let valid_pin = "7612";
+    if payload.pin.trim() == valid_pin {
+        (
+            StatusCode::OK,
+            Json(serde_json::json!({ "success": true, "message": "PIN Correcto" })),
+        )
+    } else {
+        (
+            StatusCode::UNAUTHORIZED,
+            Json(serde_json::json!({ "success": false, "message": "PIN Incorrecto" })),
+        )
+    }
+}
+
 
 
 

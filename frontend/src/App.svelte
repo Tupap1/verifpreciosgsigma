@@ -299,13 +299,23 @@
     }
   }
 
-  function verifyAdminPin() {
-    if (adminPinInput === ADMIN_PIN) {
-      showPinModal = false;
-      showSettingsModal = true;
-      pinError = '';
-    } else {
-      pinError = 'Clave incorrecta (PIN Administrador)';
+  async function verifyAdminPin() {
+    try {
+      const baseUrl = serverHost || window.location.origin;
+      const res = await fetch(`${baseUrl}/api/admin/verify-pin`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pin: adminPinInput })
+      });
+      if (res.ok) {
+        showPinModal = false;
+        showSettingsModal = true;
+        pinError = '';
+      } else {
+        pinError = 'Clave PIN incorrecta';
+      }
+    } catch (err) {
+      pinError = 'No se pudo conectar con el servidor';
     }
   }
 
@@ -314,19 +324,17 @@
     timerMax = seconds;
     timerCurrent = seconds;
 
-    const intervalMs = 100;
-    const decrement = intervalMs / 1000;
-
-    timerInterval = setInterval(() => {
-      timerCurrent -= decrement;
-      if (timerCurrent <= 0) {
-        clearCart();
-      }
-    }, intervalMs);
+    // Perform single 6-second timeout instead of 100ms interval for ARM CPU optimization
+    timerInterval = setTimeout(() => {
+      cartItems = [];
+      notFoundMessage = '';
+      timerCurrent = 0;
+    }, seconds * 1000);
   }
 
   function clearAutoTimer() {
     if (timerInterval) {
+      clearTimeout(timerInterval);
       clearInterval(timerInterval);
       timerInterval = null;
     }

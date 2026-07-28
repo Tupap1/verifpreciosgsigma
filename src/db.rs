@@ -54,6 +54,13 @@ impl ProductCache {
             );
         }
     }
+
+    pub fn evict_expired(&self) {
+        if let Ok(mut guard) = self.items.write() {
+            let ttl = Duration::from_secs(300);
+            guard.retain(|_, item| item.fetched_at.elapsed() < ttl);
+        }
+    }
 }
 
 pub async fn init_db_pool(db_url: &str) -> Result<MySqlPool, sqlx::Error> {
