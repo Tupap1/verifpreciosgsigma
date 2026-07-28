@@ -14,6 +14,7 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Button
 import android.widget.EditText
+import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
@@ -24,7 +25,7 @@ import kotlin.concurrent.thread
 
 class MainActivity : AppCompatActivity() {
 
-    private lateinit var mainLayout: LinearLayout
+    private lateinit var rootLayout: FrameLayout
     private lateinit var webView: WebView
     private lateinit var errorLayout: LinearLayout
     private lateinit var txtErrorMsg: TextView
@@ -32,13 +33,15 @@ class MainActivity : AppCompatActivity() {
     private lateinit var inputServerIp: EditText
     private lateinit var btnTestConn: Button
     private lateinit var btnSaveAndConnect: Button
+    private lateinit var btnEmergencyConfig: Button
 
     private var currentServerUrl: String = "http://192.168.1.9:8080"
+    private var tapCount = 0
+    private var lastTapTime = 0L
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
-        // Bloqueo de la barra de estado a nivel de Window
         @Suppress("DEPRECATION")
         window.setFlags(
             WindowManager.LayoutParams.FLAG_FULLSCREEN,
@@ -46,31 +49,32 @@ class MainActivity : AppCompatActivity() {
         )
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
-        mainLayout = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.MATCH_PARENT
+        rootLayout = FrameLayout(this).apply {
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
             )
         }
 
         webView = WebView(this).apply {
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.MATCH_PARENT
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
             )
         }
 
         setupErrorLayout()
+        setupEmergencyButton()
 
-        mainLayout.addView(webView)
-        mainLayout.addView(errorLayout)
-        setContentView(mainLayout)
+        rootLayout.addView(webView)
+        rootLayout.addView(errorLayout)
+        rootLayout.addView(btnEmergencyConfig)
+        setContentView(rootLayout)
 
         setupWebView()
         hideSystemUI()
 
-        // Cargar IP guardada o mostrar la pantalla de configuración inicial
+        // Cargar IP guardada
         val prefs = getSharedPreferences("GsigmaKiosk", Context.MODE_PRIVATE)
         val savedUrl = prefs.getString("server_url", null)
 
@@ -79,12 +83,30 @@ class MainActivity : AppCompatActivity() {
         } else {
             currentServerUrl = savedUrl
             inputServerIp.setText(currentServerUrl)
-            // Probar conexión antes de cargar el WebView
             testAndConnect(currentServerUrl, autoLoad = true)
         }
 
         // Iniciar comprobación de auto-actualizaciones en segundo plano
         ApkUpdater.checkAndInstallUpdate(this)
+    }
+
+    private fun setupEmergencyButton() {
+        // Botón transparente de emergencia en la esquina superior derecha para abrir configuración siempre
+        btnEmergencyConfig = Button(this).apply {
+            text = "⚙️"
+            textSize = 14f
+            alpha = 0.3f // Semi-transparente
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                gravity = Gravity.TOP or Gravity.END
+                setMargins(20, 20, 20, 20)
+            }
+            setOnClickListener {
+                showErrorScreen("Configuración de Servidor IP:")
+            }
+        }
     }
 
     private fun setupErrorLayout() {
@@ -93,9 +115,10 @@ class MainActivity : AppCompatActivity() {
             setPadding(60, 60, 60, 60)
             gravity = Gravity.CENTER
             visibility = View.GONE
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.MATCH_PARENT
+            setBackgroundColor(0xFFFFFFFF.toInt()) // Fondo blanco sólido para cubrir cualquier error de WebView
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
             )
         }
 
@@ -202,7 +225,6 @@ class MainActivity : AppCompatActivity() {
                     txtTestResult.text = "🟢 ✅ Conexión Exitosa con el Servidor"
                     txtTestResult.setTextColor(0xFF059669.toInt())
 
-                    // Guardar IP en SharedPreferences
                     currentServerUrl = cleanUrl
                     val prefs = getSharedPreferences("GsigmaKiosk", Context.MODE_PRIVATE)
                     prefs.edit().putString("server_url", cleanUrl).apply()
@@ -214,7 +236,7 @@ class MainActivity : AppCompatActivity() {
                 } else {
                     txtTestResult.text = "🔴 ❌ Falló la conexión ($errorDetails)\nVerifique la IP y que el servidor esté encendido."
                     txtTestResult.setTextColor(0xFFDC2626.toInt())
-                    showErrorScreen("No se pudo conectar a $cleanUrl")
+                    showErrorScreen("No se pudo conectar a $cleanUrl ($errorDetails)")
                 }
             }
         }
@@ -241,7 +263,9 @@ class MainActivity : AppCompatActivity() {
             ) {
                 super.onReceivedError(view, request, error)
                 if (request?.isForMainFrame == true) {
-                    showErrorScreen("Error al cargar la página: $currentServerUrl")
+                    view?.stopLoading()
+                    view?.loadUrl("about:blank")
+                    showErrorScreen("Página web no disponible en $currentServerUrl")
                 }
             }
 
@@ -253,7 +277,9 @@ class MainActivity : AppCompatActivity() {
                 failingUrl: String?
             ) {
                 super.onReceivedError(view, errorCode, description, failingUrl)
-                showErrorScreen("Error al cargar la página: $currentServerUrl")
+                view?.stopLoading()
+                view?.loadUrl("about:blank")
+                showErrorScreen("Página web no disponible en $currentServerUrl ($description)")
             }
         }
     }
@@ -266,11 +292,13 @@ class MainActivity : AppCompatActivity() {
     private fun showWebView() {
         webView.visibility = View.VISIBLE
         errorLayout.visibility = View.GONE
+        btnEmergencyConfig.visibility = View.VISIBLE
     }
 
     private fun showErrorScreen(msg: String) {
         webView.visibility = View.GONE
         errorLayout.visibility = View.VISIBLE
+        btnEmergencyConfig.visibility = View.GONE
         txtErrorMsg.text = msg
     }
 
