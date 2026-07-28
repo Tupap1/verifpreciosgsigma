@@ -25,9 +25,10 @@
   let serverHost = '';
   let sucursal = '01';
 
-  // Inactivity timer state (6 seconds after last scan, auto-clears cart)
-  let timerMax = 6;
-  let timerCurrent = 6;
+  // Inactivity timer state (default 25 seconds after last scan, auto-clears cart)
+  let inactivitySeconds = 25;
+  let timerMax = 25;
+  let timerCurrent = 25;
   let timerInterval = null;
 
   // Keydown buffer for USB/Bluetooth HID Barcode Scanners and Keyboard
@@ -45,6 +46,9 @@
   onMount(() => {
     serverHost = localStorage.getItem('vgs_server_host') || window.location.origin;
     sucursal = localStorage.getItem('vgs_sucursal') || '01';
+    inactivitySeconds = parseInt(localStorage.getItem('vgs_inactivity_seconds') || '25', 10);
+    timerMax = inactivitySeconds;
+    timerCurrent = inactivitySeconds;
 
     window.addEventListener('keydown', handleGlobalKeydown);
     window.addEventListener('online', handleOnlineStatus);
@@ -250,10 +254,10 @@
           qty: 1
         }, ...cartItems];
       }
-      startAutoTimer(6);
+      startAutoTimer(inactivitySeconds);
     } else {
       notFoundMessage = `Código ${code} no registrado`;
-      startAutoTimer(6);
+      startAutoTimer(inactivitySeconds);
     }
   }
 
@@ -321,15 +325,15 @@
 
   function startAutoTimer(seconds) {
     clearAutoTimer();
-    timerMax = seconds;
-    timerCurrent = seconds;
+    timerMax = seconds || 25;
+    timerCurrent = seconds || 25;
 
-    // Perform single 6-second timeout instead of 100ms interval for ARM CPU optimization
+    // Perform single timeout instead of 100ms interval for ARM CPU optimization
     timerInterval = setTimeout(() => {
       cartItems = [];
       notFoundMessage = '';
       timerCurrent = 0;
-    }, seconds * 1000);
+    }, (seconds || 25) * 1000);
   }
 
   function clearAutoTimer() {
@@ -350,6 +354,7 @@
   function saveSettings() {
     localStorage.setItem('vgs_server_host', serverHost);
     localStorage.setItem('vgs_sucursal', sucursal);
+    localStorage.setItem('vgs_inactivity_seconds', String(inactivitySeconds || 25));
     showSettingsModal = false;
     syncOfflineData();
   }
@@ -466,7 +471,7 @@
       <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 20px; padding: 1.2rem 1.5rem; display: flex; align-items: center; justify-content: space-between; margin-top: 1rem;">
         <div style="text-align: left;">
           <span style="font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600; letter-spacing: 1px;">TOTAL ACUMULADO</span>
-          <div style="font-size: 2.8rem; font-weight: 900; color: var(--accent-green); line-height: 1;">
+          <div style="font-size: 3.8rem; font-weight: 900; color: var(--accent-green); line-height: 1;">
             {formatCurrency(cartTotal)}
           </div>
         </div>
@@ -481,7 +486,7 @@
       </div>
     {/if}
 
-    <!-- Timer progress bar that clears after 6 seconds of inactivity -->
+    <!-- Timer progress bar that clears after inactivitySeconds seconds of inactivity -->
     {#if cartItems.length > 0 || notFoundMessage}
       <div class="timer-bar" style="width: {(timerCurrent / timerMax) * 100}%"></div>
     {/if}
@@ -563,7 +568,7 @@
           />
         </div>
 
-        <div style="margin-bottom: 1.5rem;">
+        <div style="margin-bottom: 1.2rem;">
           <label for="sucursalInput" style="display: block; font-size: 0.9rem; color: var(--text-muted); margin-bottom: 0.5rem;">Código de Sucursal (SUCCOD):</label>
           <input 
             id="sucursalInput"
@@ -571,6 +576,19 @@
             class="minimal-input"
             bind:value={sucursal} 
             placeholder="01" 
+          />
+        </div>
+
+        <div style="margin-bottom: 1.5rem;">
+          <label for="timerInput" style="display: block; font-size: 0.9rem; color: var(--text-muted); margin-bottom: 0.5rem;">Tiempo de Limpieza de Pantalla (segundos):</label>
+          <input 
+            id="timerInput"
+            type="number" 
+            class="minimal-input"
+            bind:value={inactivitySeconds} 
+            placeholder="25" 
+            min="5"
+            max="120"
           />
         </div>
 

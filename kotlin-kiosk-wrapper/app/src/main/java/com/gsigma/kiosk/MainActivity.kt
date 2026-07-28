@@ -263,6 +263,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupWebView() {
+        webView.overScrollMode = View.OVER_SCROLL_NEVER
+        webView.setLayerType(View.LAYER_TYPE_HARDWARE, null)
+
         val settings = webView.settings
         settings.javaScriptEnabled = true
         settings.domStorageEnabled = true
