@@ -3,6 +3,7 @@
 mod api;
 mod config;
 mod db;
+mod tray;
 mod updater;
 
 use api::AppState;
@@ -45,6 +46,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         config: config.clone(),
         cache: db::ProductCache::default(),
     });
+
+    // Iniciar icono en la bandeja de sistema de Windows (System Tray junto al reloj)
+    #[cfg(target_os = "windows")]
+    tray::start_system_tray(config.puerto);
 
     // Iniciar worker de auto-actualización en segundo plano
     let config_clone = config.clone();

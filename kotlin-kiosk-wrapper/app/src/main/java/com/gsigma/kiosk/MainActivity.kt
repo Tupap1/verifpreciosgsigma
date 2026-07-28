@@ -2,6 +2,9 @@ package com.gsigma.kiosk
 
 import android.content.Context
 import android.content.Intent
+import android.graphics.Color
+import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.os.Bundle
 import android.view.Gravity
@@ -33,11 +36,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var inputServerIp: EditText
     private lateinit var btnTestConn: Button
     private lateinit var btnSaveAndConnect: Button
-    private lateinit var btnEmergencyConfig: Button
 
     private var currentServerUrl: String = "http://192.168.1.9:8080"
-    private var tapCount = 0
-    private var lastTapTime = 0L
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -54,6 +54,7 @@ class MainActivity : AppCompatActivity() {
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT
             )
+            setBackgroundColor(Color.WHITE)
         }
 
         webView = WebView(this).apply {
@@ -64,11 +65,9 @@ class MainActivity : AppCompatActivity() {
         }
 
         setupErrorLayout()
-        setupEmergencyButton()
 
         rootLayout.addView(webView)
         rootLayout.addView(errorLayout)
-        rootLayout.addView(btnEmergencyConfig)
         setContentView(rootLayout)
 
         setupWebView()
@@ -79,7 +78,7 @@ class MainActivity : AppCompatActivity() {
         val savedUrl = prefs.getString("server_url", null)
 
         if (savedUrl.isNullOrEmpty()) {
-            showErrorScreen("Bienvenido al Verificador Gsigma. Ingrese la IP del servidor:")
+            showErrorScreen("Bienvenido al Verificador Gsigma.\nIngrese la IP del servidor local:")
         } else {
             currentServerUrl = savedUrl
             inputServerIp.setText(currentServerUrl)
@@ -90,32 +89,13 @@ class MainActivity : AppCompatActivity() {
         ApkUpdater.checkAndInstallUpdate(this)
     }
 
-    private fun setupEmergencyButton() {
-        // Botón transparente de emergencia en la esquina superior derecha para abrir configuración siempre
-        btnEmergencyConfig = Button(this).apply {
-            text = "⚙️"
-            textSize = 14f
-            alpha = 0.3f // Semi-transparente
-            layoutParams = FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.WRAP_CONTENT,
-                FrameLayout.LayoutParams.WRAP_CONTENT
-            ).apply {
-                gravity = Gravity.TOP or Gravity.END
-                setMargins(20, 20, 20, 20)
-            }
-            setOnClickListener {
-                showErrorScreen("Configuración de Servidor IP:")
-            }
-        }
-    }
-
     private fun setupErrorLayout() {
         errorLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(60, 60, 60, 60)
             gravity = Gravity.CENTER
             visibility = View.GONE
-            setBackgroundColor(0xFFFFFFFF.toInt()) // Fondo blanco sólido para cubrir cualquier error de WebView
+            setBackgroundColor(Color.WHITE) // Fondo blanco nítido
             layoutParams = FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT
@@ -125,6 +105,8 @@ class MainActivity : AppCompatActivity() {
         val title = TextView(this).apply {
             text = "⚙️ Configuración del Servidor"
             textSize = 24f
+            setTypeface(null, Typeface.BOLD)
+            setTextColor(Color.parseColor("#0F172A")) // Dark Slate
             gravity = Gravity.CENTER
             setPadding(0, 0, 0, 15)
         }
@@ -132,21 +114,34 @@ class MainActivity : AppCompatActivity() {
         txtErrorMsg = TextView(this).apply {
             text = "Ingrese la dirección IP del servidor local:"
             textSize = 15f
+            setTextColor(Color.parseColor("#475569")) // Medium Slate
             gravity = Gravity.CENTER
             setPadding(0, 0, 0, 20)
         }
 
         inputServerIp = EditText(this).apply {
             hint = "http://192.168.1.9:8080"
-            setPadding(30, 30, 30, 30)
+            setPadding(40, 30, 40, 30)
             setText("http://192.168.1.9:8080")
+            setTextColor(Color.parseColor("#0F172A"))
+            setHintTextColor(Color.parseColor("#94A3B8"))
+            textSize = 16f
+
+            // Background & Border styling
+            val bg = GradientDrawable().apply {
+                setColor(Color.parseColor("#F8FAFC"))
+                setStroke(3, Color.parseColor("#CBD5E1"))
+                cornerRadius = 16f
+            }
+            background = bg
         }
 
         txtTestResult = TextView(this).apply {
             text = ""
             textSize = 14f
+            setTypeface(null, Typeface.BOLD)
             gravity = Gravity.CENTER
-            setPadding(0, 15, 0, 20)
+            setPadding(0, 20, 0, 25)
         }
 
         val btnContainer = LinearLayout(this).apply {
@@ -156,6 +151,15 @@ class MainActivity : AppCompatActivity() {
 
         btnTestConn = Button(this).apply {
             text = "🧪 Probar Conexión"
+            setTextColor(Color.parseColor("#0F172A"))
+            textSize = 14f
+            setTypeface(null, Typeface.BOLD)
+            val bg = GradientDrawable().apply {
+                setColor(Color.parseColor("#E2E8F0"))
+                cornerRadius = 16f
+            }
+            background = bg
+            setPadding(30, 25, 30, 25)
             setOnClickListener {
                 val url = inputServerIp.text.toString().trim()
                 if (url.isNotEmpty()) {
@@ -168,6 +172,15 @@ class MainActivity : AppCompatActivity() {
 
         btnSaveAndConnect = Button(this).apply {
             text = "💾 Guardar y Conectar"
+            setTextColor(Color.WHITE)
+            textSize = 14f
+            setTypeface(null, Typeface.BOLD)
+            val bg = GradientDrawable().apply {
+                setColor(Color.parseColor("#059669")) // Emerald Green
+                cornerRadius = 16f
+            }
+            background = bg
+            setPadding(30, 25, 30, 25)
             setOnClickListener {
                 val url = inputServerIp.text.toString().trim()
                 if (url.isNotEmpty()) {
@@ -178,8 +191,15 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        btnContainer.addView(btnTestConn, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
-        btnContainer.addView(btnSaveAndConnect, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        val lp1 = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
+            setMargins(0, 0, 15, 0)
+        }
+        val lp2 = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
+            setMargins(15, 0, 0, 0)
+        }
+
+        btnContainer.addView(btnTestConn, lp1)
+        btnContainer.addView(btnSaveAndConnect, lp2)
 
         errorLayout.addView(title)
         errorLayout.addView(txtErrorMsg)
@@ -197,7 +217,7 @@ class MainActivity : AppCompatActivity() {
 
         runOnUiThread {
             txtTestResult.text = "⌛ Probando conexión a $cleanUrl..."
-            txtTestResult.setTextColor(0xFF007ACC.toInt())
+            txtTestResult.setTextColor(Color.parseColor("#2563EB"))
         }
 
         thread {
@@ -223,7 +243,7 @@ class MainActivity : AppCompatActivity() {
             runOnUiThread {
                 if (success) {
                     txtTestResult.text = "🟢 ✅ Conexión Exitosa con el Servidor"
-                    txtTestResult.setTextColor(0xFF059669.toInt())
+                    txtTestResult.setTextColor(Color.parseColor("#059669"))
 
                     currentServerUrl = cleanUrl
                     val prefs = getSharedPreferences("GsigmaKiosk", Context.MODE_PRIVATE)
@@ -235,7 +255,7 @@ class MainActivity : AppCompatActivity() {
                     }
                 } else {
                     txtTestResult.text = "🔴 ❌ Falló la conexión ($errorDetails)\nVerifique la IP y que el servidor esté encendido."
-                    txtTestResult.setTextColor(0xFFDC2626.toInt())
+                    txtTestResult.setTextColor(Color.parseColor("#DC2626"))
                     showErrorScreen("No se pudo conectar a $cleanUrl ($errorDetails)")
                 }
             }
@@ -292,13 +312,11 @@ class MainActivity : AppCompatActivity() {
     private fun showWebView() {
         webView.visibility = View.VISIBLE
         errorLayout.visibility = View.GONE
-        btnEmergencyConfig.visibility = View.VISIBLE
     }
 
     private fun showErrorScreen(msg: String) {
         webView.visibility = View.GONE
         errorLayout.visibility = View.VISIBLE
-        btnEmergencyConfig.visibility = View.GONE
         txtErrorMsg.text = msg
     }
 
