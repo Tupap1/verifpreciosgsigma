@@ -13,8 +13,9 @@
 /frontend/build/
 /frontend/.svelte-kit/
 
-# Environment & IDE
+# Environment & Config
 .env
+config.json
 .idea/
 .vscode/
 *.swp

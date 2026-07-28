@@ -1,0 +1,8 @@
+{
+  "puerto": 8080,
+  "sucursal": "01",
+  "db_url": "mysql://usuario:contraseña@localhost:3306/pv",
+  "auto_update": true,
+  "repo_owner": "Tupap1",
+  "repo_name": "verifpreciosgsigma"
+}

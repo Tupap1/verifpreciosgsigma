@@ -16,8 +16,8 @@ impl Default for AppConfig {
         Self {
             puerto: 8080,
             sucursal: "01".to_string(),
-            db_url: "mysql://root:7iu7Wi0@localhost:3306/pv".to_string(),
-            auto_update: false,
+            db_url: "mysql://root:password@localhost:3306/pv".to_string(),
+            auto_update: true,
             repo_owner: "Tupap1".to_string(),
             repo_name: "verifpreciosgsigma".to_string(),
         }
@@ -31,6 +31,12 @@ impl AppConfig {
                 return cfg;
             }
         }
-        Self::default()
+        
+        // Si config.json no existe, crearlo automáticamente con una plantilla segura
+        let default_cfg = Self::default();
+        if let Ok(json_str) = serde_json::to_string_pretty(&default_cfg) {
+            let _ = fs::write("config.json", json_str);
+        }
+        default_cfg
     }
 }
