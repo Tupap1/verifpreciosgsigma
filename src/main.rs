@@ -47,10 +47,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         cache: db::ProductCache::default(),
     });
 
-    // Iniciar icono en la bandeja de sistema de Windows (System Tray junto al reloj)
-    #[cfg(target_os = "windows")]
-    tray::start_system_tray(config.puerto);
-
     // Iniciar worker de auto-actualización en segundo plano
     let config_clone = config.clone();
     tokio::spawn(async move {
@@ -75,10 +71,42 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .layer(cors)
         .with_state(shared_state);
 
-    let addr = SocketAddr::from(([0, 0, 0, 0], config.puerto));
-    info!("Servidor escuchando en http://0.0.0.0:{}", config.puerto);
+    // Intentar vincular al puerto configurado en config.json (ej: 8080), con fallback si está ocupado
+    let candidate_ports = [config.puerto, 8080, 8085, 8090, 8081, 8888];
+    let mut bound_listener = None;
+    let mut actual_port = config.puerto;
 
-    let listener = tokio::net::TcpListener::bind(addr).await?;
+    for &port in &candidate_ports {
+        let addr = SocketAddr::from(([0, 0, 0, 0], port));
+        match tokio::net::TcpListener::bind(addr).await {
+            Ok(listener) => {
+                bound_listener = Some(listener);
+                actual_port = port;
+                break;
+            }
+            Err(_) => {
+                tracing::warn!("Puerto {} ocupado. Intentando puerto alternativo...", port);
+            }
+        }
+    }
+
+    let listener = match bound_listener {
+        Some(l) => l,
+        None => {
+            // Si todos los candidatos están ocupados, vincular a cualquier puerto libre disponible del sistema
+            let addr = SocketAddr::from(([0, 0, 0, 0], 0));
+            let l = tokio::net::TcpListener::bind(addr).await?;
+            actual_port = l.local_addr()?.port();
+            l
+        }
+    };
+
+    info!("Servidor escuchando exitosamente en http://0.0.0.0:{}", actual_port);
+
+    // Iniciar icono en la bandeja de sistema de Windows con el puerto real vinculado
+    #[cfg(target_os = "windows")]
+    tray::start_system_tray(actual_port);
+
     axum::serve(listener, app).await?;
 
     Ok(())

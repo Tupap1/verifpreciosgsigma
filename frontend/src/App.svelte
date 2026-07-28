@@ -37,6 +37,9 @@
   // IndexedDB reference for offline resilience
   let db = null;
 
+  // Dynamic System App Version
+  let appVersion = 'v1.2.1';
+
   $: cartTotal = cartItems.reduce((acc, item) => acc + item.precio * item.qty, 0);
 
   onMount(() => {
@@ -51,11 +54,29 @@
       isOfflineMode = true;
     }
 
+    // Fetch dynamic version from server health endpoint
+    fetchHealthVersion();
+
     // Initialize IndexedDB and start background sync
     initIndexedDB().then(() => {
       syncOfflineData();
     });
   });
+
+  async function fetchHealthVersion() {
+    try {
+      const baseUrl = serverHost || window.location.origin;
+      const res = await fetch(`${baseUrl}/api/health`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.version) {
+          appVersion = `v${data.version}`;
+        }
+      }
+    } catch (e) {
+      console.warn('Could not fetch dynamic health version:', e);
+    }
+  }
 
   onDestroy(() => {
     if (typeof window !== 'undefined') {
@@ -519,7 +540,7 @@
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.2rem;">
           <h2 style="font-size: 1.6rem; font-weight: 700; margin: 0;">⚙️ Configuración</h2>
           <span style="background: #f1f5f9; color: var(--text-muted); padding: 0.2rem 0.6rem; border-radius: 100px; font-size: 0.8rem; font-weight: 700;">
-            v1.1.2
+            {appVersion}
           </span>
         </div>
         
