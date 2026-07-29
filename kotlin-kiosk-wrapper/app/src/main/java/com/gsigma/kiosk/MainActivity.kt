@@ -329,11 +329,15 @@ class MainActivity : AppCompatActivity() {
         startKioskLock()
     }
 
+    companion object {
+        var isUpdating: Boolean = false
+    }
+
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
         if (hasFocus) {
             hideSystemUI()
-        } else {
+        } else if (!isUpdating) {
             closeSystemDialogs()
         }
     }

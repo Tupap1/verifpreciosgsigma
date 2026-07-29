@@ -83,6 +83,9 @@ object ApkUpdater {
                 }
             }
 
+            // Set flag to prevent closeSystemDialogs from killing the package installer popup
+            MainActivity.isUpdating = true
+
             // Prompt install via Intent
             val intent = Intent(Intent.ACTION_VIEW).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION
@@ -95,6 +98,7 @@ object ApkUpdater {
             }
             context.startActivity(intent)
         } catch (e: Exception) {
+            MainActivity.isUpdating = false
             e.printStackTrace()
         }
     }

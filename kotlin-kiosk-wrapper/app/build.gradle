@@ -11,8 +11,8 @@ android {
         applicationId "com.gsigma.kiosk"
         minSdkVersion 19
         targetSdkVersion 33
-        versionCode 120
-        versionName "1.2.0"
+        versionCode 141
+        versionName "1.4.1"
     }
 
     buildTypes {

@@ -39,7 +39,7 @@
   let db = null;
 
   // Dynamic System App Version
-  let appVersion = 'v1.2.1';
+  let appVersion = 'v1.4.1';
 
   $: cartTotal = cartItems.reduce((acc, item) => acc + item.precio * item.qty, 0);
 
