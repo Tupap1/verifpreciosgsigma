@@ -1,8 +1,9 @@
 #[cfg(windows)]
 fn main() {
     let mut res = winres::WindowsResource::new();
-    res.set("ProductName", "BTW-One Verificador de Precios");
-    res.set("FileDescription", "BTW-One Servidor Local Verificador de Precios");
+    res.set("ProductName", "verifGsigma");
+    res.set("FileDescription", "verifGsigma Servidor Local Verificador de Precios (BTW-One)");
+
     res.set("CompanyName", "BTW-One");
     res.set("LegalCopyright", "Copyright © 2026 BTW-One");
     res.set("OriginalFilename", "verifgsigma.exe");

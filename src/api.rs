@@ -164,6 +164,37 @@ pub async fn verify_admin_pin(Json(payload): Json<PinRequest>) -> impl IntoRespo
     }
 }
 
+pub async fn get_admin_logs() -> impl IntoResponse {
+    let log_dir = std::path::Path::new("logs");
+    let mut log_content = String::new();
+
+    if let Ok(entries) = std::fs::read_dir(log_dir) {
+        let mut files: Vec<_> = entries
+            .filter_map(|e| e.ok())
+            .filter(|e| e.path().is_file())
+            .collect();
+        files.sort_by_key(|e| e.metadata().and_then(|m| m.modified()).ok());
+
+        if let Some(latest_file) = files.last() {
+            if let Ok(content) = std::fs::read_to_string(latest_file.path()) {
+                let lines: Vec<&str> = content.lines().collect();
+                let start = if lines.len() > 200 { lines.len() - 200 } else { 0 };
+                log_content = lines[start..].join("\n");
+            }
+        }
+    }
+
+    if log_content.is_empty() {
+        log_content = "No se encontraron logs recientes.".to_string();
+    }
+
+    (
+        [(header::CONTENT_TYPE, "text/plain; charset=utf-8")],
+        log_content,
+    )
+}
+
+
 
 
 

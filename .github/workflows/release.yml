@@ -71,8 +71,8 @@ jobs:
           $hashExe = (Get-FileHash -Path target/release/verifgsigma.exe -Algorithm SHA256).Hash
           "$hashExe  verifgsigma.exe" | Out-File -Encoding ascii target/release/verifgsigma.exe.sha256
 
-          $hashSetup = (Get-FileHash -Path Output/BTW-One_Verificador_Setup.exe -Algorithm SHA256).Hash
-          "$hashSetup  BTW-One_Verificador_Setup.exe" | Out-File -Encoding ascii Output/BTW-One_Verificador_Setup.exe.sha256
+          $hashSetup = (Get-FileHash -Path Output/verifGsigma_Setup.exe -Algorithm SHA256).Hash
+          "$hashSetup  verifGsigma_Setup.exe" | Out-File -Encoding ascii Output/verifGsigma_Setup.exe.sha256
 
           Write-Host "Generated Exe SHA256: $hashExe"
           Write-Host "Generated Setup SHA256: $hashSetup"
@@ -82,12 +82,13 @@ jobs:
         with:
           tag_name: ${{ github.ref_type == 'tag' && github.ref_name || format('build-{0}', github.sha) }}
           files: |
-            Output/BTW-One_Verificador_Setup.exe
-            Output/BTW-One_Verificador_Setup.exe.sha256
+            Output/verifGsigma_Setup.exe
+            Output/verifGsigma_Setup.exe.sha256
             target/release/verifgsigma.exe
             target/release/verifgsigma.exe.sha256
             VerificadorGsigmaKiosk.apk
             config.example.json
+
 
           draft: false
           prerelease: false

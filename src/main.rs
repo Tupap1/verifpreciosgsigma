@@ -26,7 +26,14 @@ struct Assets;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    tracing_subscriber::fmt::init();
+    // Configurar directorio de logs con rotación diaria
+    let file_appender = tracing_appender::rolling::daily("logs", "verifgsigma.log");
+    let (non_blocking, _guard) = tracing_appender::non_blocking(file_appender);
+
+    tracing_subscriber::fmt()
+        .with_writer(non_blocking)
+        .with_ansi(false)
+        .init();
 
     info!("Iniciando Servidor Verificador de Precios Local para Gsigma...");
 
@@ -67,10 +74,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/api/config", get(api::get_config))
         .route("/api/update", axum::routing::post(api::trigger_update))
         .route("/api/admin/verify-pin", axum::routing::post(api::verify_admin_pin))
+        .route("/api/admin/logs", get(api::get_admin_logs))
         .route("/apk", get(api::download_apk))
         .fallback(static_handler)
         .layer(cors)
         .with_state(shared_state.clone());
+
 
     // Iniciar tarea de evicción de caché expirada cada 10 minutos para optimizar memoria RAM
     let cache_clone = shared_state.cache.clone();
