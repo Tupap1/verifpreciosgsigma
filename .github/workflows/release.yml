@@ -2,13 +2,16 @@ name: CI/CD Release Builder
 
 on:
   push:
+    branches:
+      - main
+      - master
     tags:
       - 'v*'
   workflow_dispatch:
 
 jobs:
   build-release:
-    name: Build & Publish Release Executable
+    name: Build & Publish Release Executable & Installer
     runs-on: windows-latest
     permissions:
       contents: write
@@ -51,17 +54,34 @@ jobs:
         run: |
           cargo build --release
 
+      - name: Setup Inno Setup
+        uses: sayyidhaydar/action-innosetup@v1
+        with:
+          inno-version: 6.2.2
+
+      - name: Build Inno Setup Installer
+        run: |
+          iscc installer.iss
+
       - name: Generate SHA-256 Hash
         shell: powershell
         run: |
-          $hash = (Get-FileHash -Path target/release/verifgsigma.exe -Algorithm SHA256).Hash
-          "$hash  verifgsigma.exe" | Out-File -Encoding ascii target/release/verifgsigma.exe.sha256
-          Write-Host "Generated SHA256: $hash"
+          $hashExe = (Get-FileHash -Path target/release/verifgsigma.exe -Algorithm SHA256).Hash
+          "$hashExe  verifgsigma.exe" | Out-File -Encoding ascii target/release/verifgsigma.exe.sha256
+
+          $hashSetup = (Get-FileHash -Path Output/BTW-One_Verificador_Setup.exe -Algorithm SHA256).Hash
+          "$hashSetup  BTW-One_Verificador_Setup.exe" | Out-File -Encoding ascii Output/BTW-One_Verificador_Setup.exe.sha256
+
+          Write-Host "Generated Exe SHA256: $hashExe"
+          Write-Host "Generated Setup SHA256: $hashSetup"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || format('build-{0}', github.sha) }}
           files: |
+            Output/BTW-One_Verificador_Setup.exe
+            Output/BTW-One_Verificador_Setup.exe.sha256
             target/release/verifgsigma.exe
             target/release/verifgsigma.exe.sha256
             VerificadorGsigmaKiosk.apk
