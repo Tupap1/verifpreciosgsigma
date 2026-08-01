@@ -40,13 +40,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let config = AppConfig::load();
     info!("Configuración cargada: {:?}", config);
 
-    // Inicializar pool de conexiones MySQL
-    let db_pool = db::init_db_pool(&config.db_url).await.map_err(|e| {
-        tracing::error!("Error al conectar a MySQL ({}): {:?}", config.db_url, e);
-        e
-    })?;
-
-    info!("Conexión exitosa a la base de datos MySQL (pv)");
+    // Inicializar pool de conexiones MySQL (lazy)
+    let db_pool = match db::init_db_pool(&config.db_url).await {
+        Ok(pool) => pool,
+        Err(e) => {
+            tracing::error!("Error al inicializar pool MySQL ({}): {:?}", config.db_url, e);
+            db::init_db_pool("mysql://root@localhost:3306/pv").await.unwrap()
+        }
+    };
+    info!("Pool MySQL configurado exitosamente");
 
     let shared_state = Arc::new(AppState {
         db_pool,
@@ -54,19 +56,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         cache: db::ProductCache::default(),
     });
 
-    // Iniciar worker de auto-actualización en segundo plano
     let config_clone = config.clone();
     tokio::spawn(async move {
         updater::start_update_checker(config_clone).await;
     });
 
-    // Configurar middleware CORS para permitir peticiones desde cualquier tablet en la LAN
     let cors = CorsLayer::new()
         .allow_origin(Any)
         .allow_methods(Any)
         .allow_headers(Any);
 
-    // Configurar rutas API y Servidor de Archivos Estáticos (Frontend Embebido)
     let app = Router::new()
         .route("/api/producto", get(api::get_producto))
         .route("/api/productos/sync", get(api::sync_productos))
@@ -80,8 +79,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .layer(cors)
         .with_state(shared_state.clone());
 
-
-    // Iniciar tarea de evicción de caché expirada cada 10 minutos para optimizar memoria RAM
     let cache_clone = shared_state.cache.clone();
     tokio::spawn(async move {
         loop {
@@ -90,7 +87,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     });
 
-    // Intentar vincular al puerto configurado en config.json (ej: 8080), con fallback si está ocupado
     let candidate_ports = [config.puerto, 8080, 8085, 8090, 8081, 8888];
     let mut bound_listener = None;
     let mut actual_port = config.puerto;
@@ -112,7 +108,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let listener = match bound_listener {
         Some(l) => l,
         None => {
-            // Si todos los candidatos están ocupados, vincular a cualquier puerto libre disponible del sistema
             let addr = SocketAddr::from(([0, 0, 0, 0], 0));
             let l = tokio::net::TcpListener::bind(addr).await?;
             actual_port = l.local_addr()?.port();
@@ -122,7 +117,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     info!("Servidor escuchando exitosamente en http://0.0.0.0:{}", actual_port);
 
-    // Iniciar icono en la bandeja de sistema de Windows con el puerto real vinculado
     #[cfg(target_os = "windows")]
     tray::start_system_tray(actual_port);
 
@@ -130,6 +124,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     Ok(())
 }
+
 
 async fn static_handler(uri: Uri) -> impl IntoResponse {
     let mut path = uri.path().trim_start_matches('/').to_string();

@@ -64,16 +64,16 @@ impl ProductCache {
 }
 
 pub async fn init_db_pool(db_url: &str) -> Result<MySqlPool, sqlx::Error> {
-    info!("Conectando y pre-calentando pool MySQL en: {}", db_url);
+    info!("Inicializando pool MySQL (lazy) en: {}", db_url);
     
     MySqlPoolOptions::new()
         .max_connections(20)
-        .min_connections(5)
+        .min_connections(0)
         .acquire_timeout(Duration::from_secs(3))
         .idle_timeout(Duration::from_secs(600))
-        .connect(db_url)
-        .await
+        .connect_lazy(db_url)
 }
+
 
 pub async fn buscar_producto_cached(
     pool: &MySqlPool,

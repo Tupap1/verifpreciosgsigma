@@ -26,3 +26,8 @@ config.json
 # Local OS files
 Thumbs.db
 Desktop.ini
+
+# Build & Log output
+/Output/
+/logs/
+

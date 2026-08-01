@@ -11,7 +11,8 @@ OutputBaseFilename=verifGsigma_Setup
 Compression=lzma2/max
 SolidCompression=yes
 PrivilegesRequired=admin
-ArchitecturesInstallIn64BitMode=x64
+ArchitecturesInstallIn64BitMode=x64compatible
+
 
 [Files]
 Source: "target\release\verifgsigma.exe"; DestDir: "{app}"; Flags: ignoreversion
