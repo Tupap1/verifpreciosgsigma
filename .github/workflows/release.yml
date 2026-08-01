@@ -54,14 +54,16 @@ jobs:
         run: |
           cargo build --release
 
-      - name: Setup Inno Setup
-        uses: sayyidhaydar/action-innosetup@v1
-        with:
-          inno-version: 6.2.2
+      - name: Install Inno Setup
+        shell: powershell
+        run: |
+          choco install innosetup -y
 
       - name: Build Inno Setup Installer
+        shell: powershell
         run: |
-          iscc installer.iss
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss
+
 
       - name: Generate SHA-256 Hash
         shell: powershell
