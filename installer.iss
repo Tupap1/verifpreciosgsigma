@@ -15,7 +15,8 @@ ArchitecturesInstallIn64BitMode=x64
 
 [Files]
 Source: "target\release\verifgsigma.exe"; DestDir: "{app}"; Flags: ignoreversion
-Source: "config.json"; DestDir: "{app}"; Flags: ignoreversion
+Source: "config.example.json"; DestName: "config.json"; DestDir: "{app}"; Flags: onlyifdoesntexist
+
 
 [Icons]
 Name: "{autostartup}\BTW-One Verificador Server"; Filename: "{app}\verifgsigma.exe"; WorkingDir: "{app}"
