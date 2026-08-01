@@ -2,7 +2,7 @@
 
 [Setup]
 AppName=verifGsigma
-AppVersion=1.4.3
+AppVersion=1.4.4
 AppPublisher=BTW-One
 AppPublisherURL=https://btw-one.com
 DefaultDirName={autopf}\BTW-One\verifGsigma
@@ -12,7 +12,9 @@ Compression=lzma2/max
 SolidCompression=yes
 PrivilegesRequired=admin
 ArchitecturesInstallIn64BitMode=x64compatible
-
+DisableDirPage=no
+DisableProgramGroupPage=no
+AlwaysShowDirOnReadyPage=yes
 
 [Files]
 Source: "target\release\verifgsigma.exe"; DestDir: "{app}"; Flags: ignoreversion
@@ -36,13 +38,21 @@ Filename: "sc.exe"; Parameters: "delete verifGsigma"; Flags: runhidden; RunOnceI
 var
   ConfigPage: TInputQueryWizardPage;
 
+function ShouldSkipPage(PageID: Integer): Boolean;
+begin
+  if (ConfigPage <> nil) and (PageID = ConfigPage.ID) then
+    Result := False
+  else
+    Result := False;
+end;
+
 procedure InitializeWizard;
 begin
   // Crear pagina personalizada de configuracion de MySQL y Puerto
   ConfigPage := CreateInputQueryPage(wpSelectDir,
-    'Configuración del Servidor verifGsigma',
-    'Ingrese los parámetros de conexión para la base de datos MySQL y el puerto del servidor.',
-    'Por favor especifique los datos de conexión de la tienda. Si no está seguro, deje los valores predeterminados.');
+    'Configuración del Servidor verifGsigma (BTW-One)',
+    'Parámetros de Red y Base de Datos MySQL',
+    'Por favor especifique los datos de conexión para esta sucursal. Estos datos se guardarán en config.json.');
 
   ConfigPage.Add('Puerto HTTP del Servidor:', False);
   ConfigPage.Add('Host de MySQL (IP o localhost):', False);
@@ -52,7 +62,7 @@ begin
   ConfigPage.Add('Nombre de Base de Datos MySQL:', False);
   ConfigPage.Add('Código de Sucursal:', False);
 
-  // Valores predeterminados
+  // Valores predeterminados iniciales
   ConfigPage.Values[0] := '8080';
   ConfigPage.Values[1] := 'localhost';
   ConfigPage.Values[2] := '3306';
@@ -100,7 +110,7 @@ begin
 
     ConfigFilePath := ExpandConstant('{app}\config.json');
 
-    // Escribir el archivo config.json con los valores ingresados por el usuario
+    // Escribir siempre el archivo config.json con los datos confirmados por el usuario
     SaveStringToFile(ConfigFilePath, ConfigContent, False);
   end;
 end;
