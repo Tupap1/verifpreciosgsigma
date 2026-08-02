@@ -104,10 +104,16 @@ unsafe extern "system" fn wnd_proc(
                         .spawn();
                 }
                 IDM_CHECK_UPDATE => {
-                    let _ = std::process::Command::new("cmd")
-                        .args(["/C", "start", "https://github.com/Tupap1/verifpreciosgsigma/releases"])
-                        .spawn();
+                    std::thread::spawn(|| {
+                        let config = crate::config::AppConfig::load();
+                        if let Ok(rt) = tokio::runtime::Builder::new_current_thread().enable_all().build() {
+                            rt.block_on(async {
+                                crate::updater::check_one_update(&config).await;
+                            });
+                        }
+                    });
                 }
+
                 IDM_EXIT => {
                     PostQuitMessage(0);
                     std::process::exit(0);

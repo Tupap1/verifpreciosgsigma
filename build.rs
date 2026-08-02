@@ -7,8 +7,9 @@ fn main() {
     res.set("CompanyName", "BTW-One");
     res.set("LegalCopyright", "Copyright © 2026 BTW-One");
     res.set("OriginalFilename", "verifgsigma.exe");
-    res.set("FileVersion", "1.0.0.0");
-    res.set("ProductVersion", "1.0.0.0");
+    res.set("FileVersion", "1.4.6.0");
+    res.set("ProductVersion", "1.4.6.0");
+
     if let Err(e) = res.compile() {
         eprintln!("Error al compilar recursos de Windows: {}", e);
         std::process::exit(1);

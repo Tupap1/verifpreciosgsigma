@@ -21,7 +21,7 @@ pub async fn start_update_checker(config: AppConfig) {
 }
 
 pub async fn check_one_update(config: &AppConfig) {
-    info!("Verificando actualizaciones bajo demanda en GitHub Releases...");
+    info!("Verificando actualizaciones bajo demanda en GitHub Releases (repo: {}/{})...", config.repo_owner, config.repo_name);
 
     let client = match reqwest::Client::builder()
         .user_agent("VerifGsigma-AutoUpdater")
@@ -39,58 +39,79 @@ pub async fn check_one_update(config: &AppConfig) {
         config.repo_owner, config.repo_name
     );
 
-    if let Ok(res) = client.get(&url).send().await {
-        if res.status().is_success() {
+    match client.get(&url).send().await {
+        Ok(res) if res.status().is_success() => {
             if let Ok(json) = res.json::<Value>().await {
                 let latest_tag = json["tag_name"].as_str().unwrap_or("").trim_start_matches('v');
                 let current_version = env!("CARGO_PKG_VERSION");
 
+                info!("Versión instalada: v{}, Versión más reciente en GitHub: v{}", current_version, latest_tag);
+
                 if !latest_tag.is_empty() && latest_tag != current_version {
-                    info!("Nueva versión encontrada en GitHub: v{}. Iniciando descarga...", latest_tag);
+                    info!("🚀 Nueva versión v{} disponible. Buscando binario...", latest_tag);
 
                     if let Some(assets) = json["assets"].as_array() {
+                        let mut found = false;
                         for asset in assets {
                             let name = asset["name"].as_str().unwrap_or("");
                             if name == "verifgsigma.exe" {
                                 if let Some(download_url) = asset["browser_download_url"].as_str() {
+                                    found = true;
+                                    info!("Binario verifgsigma.exe encontrado. Descargando desde: {}", download_url);
                                     download_and_apply_exe(&client, download_url).await;
                                     break;
                                 }
                             }
                         }
+                        if !found {
+                            warn!("No se encontró el archivo asset verifgsigma.exe en la release v{}", latest_tag);
+                        }
                     }
                 } else {
-                    info!("El servidor está en la versión más reciente (v{})", current_version);
+                    info!("✅ El servidor ya está ejecutando la versión más reciente (v{})", current_version);
                 }
             }
+        }
+        Ok(res) => {
+            warn!("Respuesta HTTP no exitosa de GitHub Releases (Status: {})", res.status());
+        }
+        Err(e) => {
+            warn!("Error al conectar con la API de GitHub Releases: {:?}", e);
         }
     }
 }
 
 async fn download_and_apply_exe(client: &reqwest::Client, download_url: &str) {
+    info!("Descargando nuevo ejecutable desde: {}", download_url);
     match client.get(download_url).send().await {
         Ok(res) if res.status().is_success() => {
             if let Ok(bytes) = res.bytes().await {
+                info!("Descarga completada ({} bytes). Aplicando actualización...", bytes.len());
                 if let Ok(current_exe) = std::env::current_exe() {
                     let old_exe = current_exe.with_extension("exe.old");
                     
-                    // Renombrar ejecutable en ejecución
                     let _ = std::fs::remove_file(&old_exe);
                     if std::fs::rename(&current_exe, &old_exe).is_ok() {
                         if std::fs::write(&current_exe, &bytes).is_ok() {
-                            info!("✅ Actualización descargada exitosamente. Reiniciando servidor...");
+                            info!("✅ Actualización aplicada exitosamente. Reiniciando servidor...");
                             let _ = std::process::Command::new(&current_exe).spawn();
                             std::process::exit(0);
                         } else {
-                            // Revertir si falló la escritura
+                            warn!("❌ Error al escribir el nuevo binario. Revirtiendo a la versión anterior...");
                             let _ = std::fs::rename(&old_exe, &current_exe);
                         }
+                    } else {
+                        warn!("❌ No se pudo renombrar el ejecutable en uso. Revisa permisos.");
                     }
                 }
             }
         }
+        Err(e) => {
+            warn!("Error al descargar el ejecutable de actualización: {:?}", e);
+        }
         _ => {
-            warn!("Fallo al descargar ejecutable de actualización desde GitHub");
+            warn!("Respuesta fallida al descargar el ejecutable de actualización");
         }
     }
 }
+

@@ -1,7 +1,8 @@
 {
   "name": "verifgsigma-frontend",
-  "version": "1.0.0",
+  "version": "1.4.6",
   "private": true,
+
   "type": "module",
   "scripts": {
     "dev": "vite",

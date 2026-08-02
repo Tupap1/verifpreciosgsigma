@@ -2,8 +2,9 @@
 
 [Setup]
 AppName=verifGsigma
-AppVersion=1.4.4
+AppVersion=1.4.6
 AppPublisher=BTW-One
+
 AppPublisherURL=https://btw-one.com
 DefaultDirName={autopf}\BTW-One\verifGsigma
 DefaultGroupName=BTW-One\verifGsigma
