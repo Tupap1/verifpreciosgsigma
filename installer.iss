@@ -3,7 +3,7 @@
 [Setup]
 AppId={{C6D2B4A1-8E92-4F81-9A33-72C5B5238210}
 AppName=verifGsigma
-AppVersion=1.4.8
+AppVersion=1.4.9
 AppPublisher=BTW-One
 AppPublisherURL=https://btw-one.com
 DefaultDirName={autopf}\BTW-One\verifGsigma
