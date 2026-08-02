@@ -72,6 +72,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/api/health", get(api::health_check))
         .route("/api/config", get(api::get_config))
         .route("/api/update", axum::routing::post(api::trigger_update))
+        .route("/api/update/status", get(api::get_update_status))
+
         .route("/api/admin/verify-pin", axum::routing::post(api::verify_admin_pin))
         .route("/api/admin/logs", get(api::get_admin_logs))
         .route("/apk", get(api::download_apk))

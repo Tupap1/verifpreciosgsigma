@@ -130,19 +130,18 @@ pub async fn download_apk() -> impl IntoResponse {
     }
 }
 
+pub async fn get_update_status() -> impl IntoResponse {
+    (StatusCode::OK, Json(updater::get_update_status()))
+}
+
 pub async fn trigger_update(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     let config = state.config.clone();
     tokio::spawn(async move {
         updater::check_one_update(&config).await;
     });
-    (
-        StatusCode::OK,
-        Json(serde_json::json!({
-            "status": "buscando",
-            "message": "Buscando actualizaciones en GitHub Releases..."
-        })),
-    )
+    (StatusCode::OK, Json(updater::get_update_status()))
 }
+
 
 #[derive(serde::Deserialize)]
 pub struct PinRequest {

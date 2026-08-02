@@ -20,7 +20,16 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
+      - name: Read VERSION File
+        id: read_version
+        shell: powershell
+        run: |
+          $ver = (Get-Content -Path VERSION -Raw).Trim()
+          echo "APP_VER=v$ver" >> $env:GITHUB_ENV
+          Write-Host "App Version: v$ver"
+
       - name: Setup Node.js
+
         uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -81,7 +90,8 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || format('build-{0}', github.sha) }}
+          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || env.APP_VER }}
+
           files: |
             Output/verifGsigma_Setup.exe
             Output/verifGsigma_Setup.exe.sha256

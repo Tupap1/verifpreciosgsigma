@@ -39,7 +39,8 @@
   let db = null;
 
   // Dynamic System App Version
-  let appVersion = 'v1.4.6';
+  let appVersion = import.meta.env.VITE_APP_VERSION || 'v1.4.7';
+
 
 
   $: cartTotal = cartItems.reduce((acc, item) => acc + item.precio * item.qty, 0);
@@ -287,22 +288,45 @@
   }
 
   let updateStatusMessage = '';
+  let updatePollInterval = null;
 
   async function triggerSystemUpdate() {
-    updateStatusMessage = 'Buscando actualizaciones en GitHub...';
+    updateStatusMessage = 'Buscando actualizaciones en GitHub Releases...';
     try {
       const baseUrl = serverHost || window.location.origin;
-      const res = await fetch(`${baseUrl}/api/update`, { method: 'POST' });
-      if (res.ok) {
-        const data = await res.json();
-        updateStatusMessage = data.message || 'Búsqueda de actualización iniciada';
-      } else {
-        updateStatusMessage = 'El sistema ya se encuentra en la versión más reciente.';
-      }
+      await fetch(`${baseUrl}/api/update`, { method: 'POST' });
+
+      if (updatePollInterval) clearInterval(updatePollInterval);
+
+      updatePollInterval = setInterval(async () => {
+        try {
+          const res = await fetch(`${baseUrl}/api/update/status`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data && data.message) {
+              updateStatusMessage = data.message;
+            }
+            if (data && (data.state === 'up_to_date' || data.state === 'error')) {
+              clearInterval(updatePollInterval);
+              updatePollInterval = null;
+            } else if (data && data.state === 'applying') {
+              setTimeout(() => {
+                window.location.reload();
+              }, 4000);
+            }
+          }
+        } catch (e) {
+          if (updateStatusMessage.includes('Reiniciando') || updateStatusMessage.includes('Aplicando')) {
+            updateStatusMessage = 'Servidor reiniciándose con la nueva versión... Reconectando...';
+            setTimeout(() => window.location.reload(), 3000);
+          }
+        }
+      }, 800);
     } catch (err) {
       updateStatusMessage = 'No se pudo conectar con el servicio de actualización';
     }
   }
+
 
   async function verifyAdminPin() {
     try {
