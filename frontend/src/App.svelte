@@ -220,7 +220,8 @@
       try {
         const baseUrl = serverHost || window.location.origin;
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 800); // 800ms max
+        const timeoutId = setTimeout(() => controller.abort(), 3000); // 3000ms (3s) timeout para red
+
 
         const res = await fetch(`${baseUrl}/api/producto?codigo=${encodeURIComponent(code)}&sucursal=${encodeURIComponent(sucursal)}`, {
           signal: controller.signal
