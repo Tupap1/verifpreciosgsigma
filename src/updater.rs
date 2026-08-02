@@ -133,12 +133,20 @@ pub async fn check_one_update(config: &AppConfig) {
             set_update_status("error", current_version, &msg);
         }
         Err(e) => {
-            let msg = format!("Error al conectar con GitHub Releases: {:?}", e);
+            let err_str = e.to_string();
+            let msg = if e.is_connect() || err_str.contains("dns") || err_str.contains("Host desconocido") || err_str.contains("11001") {
+                "Sin conexión a Internet o el servidor no puede resolver api.github.com (Error de DNS/Red).".to_string()
+            } else if e.is_timeout() {
+                "Tiempo de espera agotado al conectar con GitHub Releases.".to_string()
+            } else {
+                format!("No se pudo conectar con GitHub Releases: {}", e)
+            };
             warn!("{}", msg);
             set_update_status("error", current_version, &msg);
         }
     }
 }
+
 
 async fn download_and_apply_exe(client: &reqwest::Client, download_url: &str, target_version: &str) {
     info!("Descargando versión v{} desde: {}", target_version, download_url);

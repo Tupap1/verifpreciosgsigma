@@ -26,8 +26,17 @@ struct Assets;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Configurar directorio de logs con rotación diaria
-    let file_appender = tracing_appender::rolling::daily("logs", "verifgsigma.log");
+    let exe_dir = std::env::current_exe()
+        .ok()
+        .and_then(|p| p.parent().map(|p| p.to_path_buf()))
+        .unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
+    let log_dir = exe_dir.join("logs");
+
+    if let Err(e) = std::fs::create_dir_all(&log_dir) {
+        eprintln!("Advertencia: No se pudo crear el directorio de logs en {:?}: {}", log_dir, e);
+    }
+
+    let file_appender = tracing_appender::rolling::daily(log_dir, "verifgsigma.log");
     let (non_blocking, _guard) = tracing_appender::non_blocking(file_appender);
 
     tracing_subscriber::fmt()
