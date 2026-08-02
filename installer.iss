@@ -1,10 +1,10 @@
 ; Script de Inno Setup para verifGsigma (BTW-One)
 
 [Setup]
+AppId={{C6D2B4A1-8E92-4F81-9A33-72C5B5238210}
 AppName=verifGsigma
-AppVersion=1.4.6
+AppVersion=1.4.8
 AppPublisher=BTW-One
-
 AppPublisherURL=https://btw-one.com
 DefaultDirName={autopf}\BTW-One\verifGsigma
 DefaultGroupName=BTW-One\verifGsigma
@@ -25,13 +25,21 @@ Source: "config.example.json"; DestName: "config.json"; DestDir: "{app}"; Flags:
 Name: "{group}\verifGsigma Servidor Local"; Filename: "{app}\verifgsigma.exe"; WorkingDir: "{app}"
 
 [Run]
-; Registrar como Servicio de Windows
+; Detener y eliminar servicios/procesos previos para evitar ejecuciones o puertos duplicados
+Filename: "taskkill.exe"; Parameters: "/F /IM verifgsigma.exe"; Flags: runhidden
+Filename: "sc.exe"; Parameters: "stop verifgsigma"; Flags: runhidden
+Filename: "sc.exe"; Parameters: "delete verifgsigma"; Flags: runhidden
+Filename: "sc.exe"; Parameters: "stop verifGsigma"; Flags: runhidden
+Filename: "sc.exe"; Parameters: "delete verifGsigma"; Flags: runhidden
+
+; Registrar el nuevo servicio de Windows verifGsigma con auto-recuperacion
 Filename: "sc.exe"; Parameters: "create verifGsigma binPath= ""{app}\verifgsigma.exe"" start= auto DisplayName= ""verifGsigma Servidor Local (BTW-One)"""; Flags: runhidden
 Filename: "sc.exe"; Parameters: "description verifGsigma ""Servidor Local Verificador de Precios por BTW-One"""; Flags: runhidden
 Filename: "sc.exe"; Parameters: "failure verifGsigma reset= 86400 actions= restart/5000/restart/5000/restart/5000"; Flags: runhidden
 Filename: "sc.exe"; Parameters: "start verifGsigma"; Flags: runhidden
 
 [UninstallRun]
+Filename: "taskkill.exe"; Parameters: "/F /IM verifgsigma.exe"; Flags: runhidden; RunOnceId: "KillProcess"
 Filename: "sc.exe"; Parameters: "stop verifGsigma"; Flags: runhidden; RunOnceId: "StopService"
 Filename: "sc.exe"; Parameters: "delete verifGsigma"; Flags: runhidden; RunOnceId: "DeleteService"
 
@@ -49,11 +57,11 @@ end;
 
 procedure InitializeWizard;
 begin
-  // Crear pagina personalizada de configuracion de MySQL y Puerto
-  ConfigPage := CreateInputQueryPage(wpSelectDir,
+  // Crear pagina personalizada de configuracion de MySQL y Puerto justo despues de Bienvenidos (wpWelcome)
+  ConfigPage := CreateInputQueryPage(wpWelcome,
     'Configuración del Servidor verifGsigma (BTW-One)',
     'Parámetros de Red y Base de Datos MySQL',
-    'Por favor especifique los datos de conexión para esta sucursal. Estos datos se guardarán en config.json.');
+    'Por favor especifique el puerto de red y los datos de conexión MySQL para esta sucursal.');
 
   ConfigPage.Add('Puerto HTTP del Servidor:', False);
   ConfigPage.Add('Host de MySQL (IP o localhost):', False);
@@ -111,7 +119,7 @@ begin
 
     ConfigFilePath := ExpandConstant('{app}\config.json');
 
-    // Escribir siempre el archivo config.json con los datos confirmados por el usuario
+    // Escribir el archivo config.json con los datos confirmados por el usuario
     SaveStringToFile(ConfigFilePath, ConfigContent, False);
   end;
 end;
