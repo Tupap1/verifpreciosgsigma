@@ -3,7 +3,7 @@
 [Setup]
 AppId={{C6D2B4A1-8E92-4F81-9A33-72C5B5238210}
 AppName=verifGsigma
-AppVersion=1.4.10
+AppVersion=1.4.11
 AppPublisher=BTW-One
 AppPublisherURL=https://btw-one.com
 DefaultDirName={autopf}\BTW-One\verifGsigma
@@ -22,7 +22,9 @@ Source: "target\release\verifgsigma.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "config.example.json"; DestName: "config.json"; DestDir: "{app}"; Flags: onlyifdoesntexist
 
 [Icons]
+Name: "{autostartup}\verifGsigma Servidor Local"; Filename: "{app}\verifgsigma.exe"; WorkingDir: "{app}"
 Name: "{group}\verifGsigma Servidor Local"; Filename: "{app}\verifgsigma.exe"; WorkingDir: "{app}"
+Name: "{commondesktop}\verifGsigma Servidor Local"; Filename: "{app}\verifgsigma.exe"; WorkingDir: "{app}"
 
 [Run]
 ; Detener y eliminar servicios/procesos previos para evitar ejecuciones o puertos duplicados
@@ -32,11 +34,8 @@ Filename: "sc.exe"; Parameters: "delete verifgsigma"; Flags: runhidden
 Filename: "sc.exe"; Parameters: "stop verifGsigma"; Flags: runhidden
 Filename: "sc.exe"; Parameters: "delete verifGsigma"; Flags: runhidden
 
-; Registrar el nuevo servicio de Windows verifGsigma con auto-recuperacion
-Filename: "sc.exe"; Parameters: "create verifGsigma binPath= ""{app}\verifgsigma.exe"" start= auto DisplayName= ""verifGsigma Servidor Local (BTW-One)"""; Flags: runhidden
-Filename: "sc.exe"; Parameters: "description verifGsigma ""Servidor Local Verificador de Precios por BTW-One"""; Flags: runhidden
-Filename: "sc.exe"; Parameters: "failure verifGsigma reset= 86400 actions= restart/5000/restart/5000/restart/5000"; Flags: runhidden
-Filename: "sc.exe"; Parameters: "start verifGsigma"; Flags: runhidden
+; Iniciar el servidor local directamente en segundo plano con icono en la barra de tareas/reloj
+Filename: "{app}\verifgsigma.exe"; Description: "Iniciar Servidor Verificador de Precios"; Flags: nowait postinstall skipifsilent
 
 [UninstallRun]
 Filename: "taskkill.exe"; Parameters: "/F /IM verifgsigma.exe"; Flags: runhidden; RunOnceId: "KillProcess"
