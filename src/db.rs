@@ -152,9 +152,11 @@ pub async fn obtener_todos_productos_sync(
             p.PASNOM AS ARTNOM, 
             a.ARTPRE, 
             a.ARTEXI,
-            p.PASUNIMED AS ARTUNIDAD
+            p.PASUNIMED AS ARTUNIDAD,
+            ca.PASCODALT
         FROM artic a 
         JOIN pas p ON a.ARTCOD = p.PAS 
+        LEFT JOIN pascodal ca ON a.ARTCOD = ca.PASCOD
         WHERE a.SUCCOD = ?;
     ";
 
@@ -170,14 +172,32 @@ pub async fn obtener_todos_productos_sync(
         let raw_pre: f64 = r.try_get("ARTPRE").unwrap_or(0.0);
         let raw_exi: f64 = r.try_get("ARTEXI").unwrap_or(0.0);
         let raw_uni: String = r.try_get("ARTUNIDAD").unwrap_or_else(|_| "UND".to_string());
+        let raw_alt: Option<String> = r.try_get("PASCODALT").ok();
+
+        let clean_cod = raw_cod.trim().to_string();
+        let clean_nom = raw_nom.trim().to_string();
+        let clean_uni = raw_uni.trim().to_string();
 
         lista.push(ProductoSyncDto {
-            c: raw_cod.trim().to_string(),
-            n: raw_nom.trim().to_string(),
+            c: clean_cod.clone(),
+            n: clean_nom.clone(),
             p: raw_pre,
             e: raw_exi,
-            u: raw_uni.trim().to_string(),
+            u: clean_uni.clone(),
         });
+
+        if let Some(alt) = raw_alt {
+            let clean_alt = alt.trim().to_string();
+            if !clean_alt.is_empty() && clean_alt != clean_cod {
+                lista.push(ProductoSyncDto {
+                    c: clean_alt,
+                    n: clean_nom,
+                    p: raw_pre,
+                    e: raw_exi,
+                    u: clean_uni,
+                });
+            }
+        }
     }
 
     Ok(lista)

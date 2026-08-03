@@ -26,16 +26,28 @@ impl Default for AppConfig {
 
 impl AppConfig {
     pub fn load() -> Self {
+        let exe_dir = std::env::current_exe()
+            .ok()
+            .and_then(|p| p.parent().map(|p| p.to_path_buf()))
+            .unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
+        let exe_config_path = exe_dir.join("config.json");
+
+        if let Ok(content) = fs::read_to_string(&exe_config_path) {
+            if let Ok(cfg) = serde_json::from_str::<AppConfig>(&content) {
+                return cfg;
+            }
+        }
+
         if let Ok(content) = fs::read_to_string("config.json") {
             if let Ok(cfg) = serde_json::from_str::<AppConfig>(&content) {
                 return cfg;
             }
         }
-        
-        // Si config.json no existe, crearlo automáticamente con una plantilla segura
+
+        // Si config.json no existe, crearlo automáticamente en la carpeta del ejecutable
         let default_cfg = Self::default();
         if let Ok(json_str) = serde_json::to_string_pretty(&default_cfg) {
-            let _ = fs::write("config.json", json_str);
+            let _ = fs::write(&exe_config_path, json_str);
         }
         default_cfg
     }

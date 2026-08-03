@@ -212,33 +212,35 @@
 
     let productData = null;
 
-    // Si ya detectamos offline o navigator.onLine es false -> CONSULTA INSTANTÁNEA EN INDEXEDDB (0ms delay)
-    if (isOfflineMode || (typeof navigator !== 'undefined' && !navigator.onLine)) {
-      productData = await searchOfflineDB(code);
-    } else {
-      // Si estamos online -> consultar red con timeout ultra rápido de 800ms
-      try {
-        const baseUrl = serverHost || window.location.origin;
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 3000); // 3000ms (3s) timeout para red
+    const baseUrl = serverHost || window.location.origin;
 
+    // 1. Intentar siempre primero la API live del servidor backend
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3000); // 3s timeout
 
-        const res = await fetch(`${baseUrl}/api/producto?codigo=${encodeURIComponent(code)}&sucursal=${encodeURIComponent(sucursal)}`, {
-          signal: controller.signal
-        });
-        clearTimeout(timeoutId);
+      const res = await fetch(`${baseUrl}/api/producto?codigo=${encodeURIComponent(code)}&sucursal=${encodeURIComponent(sucursal)}`, {
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
 
-        if (res.ok) {
-          const data = await res.json();
-          if (data && data.encontrado) {
-            productData = data;
-            isOfflineMode = false;
-          }
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.encontrado) {
+          productData = data;
+          isOfflineMode = false;
         }
-      } catch (err) {
-        console.warn('Fallo de red o timeout, buscando instantáneamente en IndexedDB...', err);
-        isOfflineMode = true;
-        productData = await searchOfflineDB(code);
+      }
+    } catch (err) {
+      console.warn('Fallo de red o timeout al consultar API, buscando en IndexedDB...', err);
+      isOfflineMode = true;
+    }
+
+    // 2. Si la API no devolvió producto o falló la conexión, buscar en IndexedDB offline
+    if (!productData) {
+      const offlineResult = await searchOfflineDB(code);
+      if (offlineResult) {
+        productData = offlineResult;
       }
     }
 
