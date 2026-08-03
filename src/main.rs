@@ -30,13 +30,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .ok()
         .and_then(|p| p.parent().map(|p| p.to_path_buf()))
         .unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
-    let log_dir = exe_dir.join("logs");
+    let primary_log_dir = exe_dir.join("logs");
 
-    if let Err(e) = std::fs::create_dir_all(&log_dir) {
-        eprintln!("Advertencia: No se pudo crear el directorio de logs en {:?}: {}", log_dir, e);
-    }
+    let final_log_dir = if std::fs::create_dir_all(&primary_log_dir).is_ok() {
+        primary_log_dir
+    } else {
+        let fallback = std::env::temp_dir().join("verifGsigma").join("logs");
+        let _ = std::fs::create_dir_all(&fallback);
+        fallback
+    };
 
-    let file_appender = tracing_appender::rolling::daily(log_dir, "verifgsigma.log");
+    let file_appender = tracing_appender::rolling::daily(final_log_dir, "verifgsigma.log");
     let (non_blocking, _guard) = tracing_appender::non_blocking(file_appender);
 
     tracing_subscriber::fmt()

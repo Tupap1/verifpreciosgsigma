@@ -3,7 +3,7 @@
 [Setup]
 AppId={{C6D2B4A1-8E92-4F81-9A33-72C5B5238210}
 AppName=verifGsigma
-AppVersion=1.4.11
+AppVersion=1.4.12
 AppPublisher=BTW-One
 AppPublisherURL=https://btw-one.com
 DefaultDirName={autopf}\BTW-One\verifGsigma
@@ -17,9 +17,13 @@ DisableDirPage=no
 DisableProgramGroupPage=no
 AlwaysShowDirOnReadyPage=yes
 
+[Dirs]
+Name: "{app}"; Permissions: users-full
+Name: "{app}\logs"; Permissions: users-full
+
 [Files]
-Source: "target\release\verifgsigma.exe"; DestDir: "{app}"; Flags: ignoreversion
-Source: "config.example.json"; DestName: "config.json"; DestDir: "{app}"; Flags: onlyifdoesntexist
+Source: "target\release\verifgsigma.exe"; DestDir: "{app}"; Flags: ignoreversion; Permissions: users-full
+Source: "config.example.json"; DestName: "config.json"; DestDir: "{app}"; Flags: onlyifdoesntexist; Permissions: users-full
 
 [Icons]
 Name: "{autostartup}\verifGsigma Servidor Local"; Filename: "{app}\verifgsigma.exe"; WorkingDir: "{app}"
